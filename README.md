@@ -38,13 +38,13 @@ graph TB
     Frontend -->|POST /api/checkout| Checkout
     Frontend -->|GET /api/orders| Orders
     
-    Cart -->|GET /api/products/{id}| Products
+    Cart -->|"GET /api/products/:id"| Products
     
     Checkout -->|GET /api/cart| Cart
     Checkout -->|POST /api/payment| Payment
     Checkout -->|POST /api/orders| Orders
     
-    Orders -->|GET /api/products/{id}| Products
+    Orders -->|"GET /api/products/:id"| Products
     Orders -->|POST /api/fulfillment/process| Fulfillment
     
     Products -->|Read/Write| DB
