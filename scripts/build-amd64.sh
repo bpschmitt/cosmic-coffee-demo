@@ -69,21 +69,11 @@ docker buildx build \
   ./backend
 
 echo ""
-echo -e "${GREEN}Building Middleware for amd64...${NC}"
-docker buildx build \
-  --platform ${PLATFORM} \
-  -t ${REGISTRY}/cosmic-coffee-middleware:${VERSION} \
-  -t ${REGISTRY}/cosmic-coffee-middleware:latest \
-  ${LOAD_FLAG} \
-  ./middleware
-
-echo ""
 echo -e "${GREEN}✅ All amd64 images built successfully!${NC}"
 echo ""
 echo "Images:"
 echo "  - ${REGISTRY}/cosmic-coffee-frontend:${VERSION}"
 echo "  - ${REGISTRY}/cosmic-coffee-backend:${VERSION}"
-echo "  - ${REGISTRY}/cosmic-coffee-middleware:${VERSION}"
 echo ""
 if [ "$LOAD_FLAG" = "--load" ]; then
     echo "Images are loaded locally and ready to use."

@@ -35,7 +35,6 @@ If you're on an Apple Silicon Mac and need to build for amd64 (x86_64) architect
 # Build for amd64 only (slower due to emulation, but ensures compatibility)
 docker buildx build --platform linux/amd64 -t cosmic-coffee-frontend:latest --load ./frontend
 docker buildx build --platform linux/amd64 -t cosmic-coffee-backend:latest --load ./backend
-docker buildx build --platform linux/amd64 -t cosmic-coffee-middleware:latest --load ./middleware
 ```
 
 **Note:** The `--load` flag only works with single-platform builds. Building for amd64 on Apple Silicon uses QEMU emulation, which is slower but allows you to create amd64 images locally.
@@ -46,7 +45,6 @@ eval $(minikube docker-env)
 # Build for your native architecture (arm64) - faster
 docker build -t cosmic-coffee-frontend:latest ./frontend
 docker build -t cosmic-coffee-backend:latest ./backend
-docker build -t cosmic-coffee-middleware:latest ./middleware
 ```
 
 If using kind:
@@ -54,12 +52,10 @@ If using kind:
 # Build for your native architecture (arm64) - faster
 docker build -t cosmic-coffee-frontend:latest ./frontend
 docker build -t cosmic-coffee-backend:latest ./backend
-docker build -t cosmic-coffee-middleware:latest ./middleware
 
 # Load into kind
 kind load docker-image cosmic-coffee-frontend:latest
 kind load docker-image cosmic-coffee-backend:latest
-kind load docker-image cosmic-coffee-middleware:latest
 ```
 
 ### Option 2: Build multi-architecture images and push to a container registry
@@ -88,13 +84,6 @@ docker buildx build \
   --push \
   ./backend
 
-# Build and push middleware (arm64 + amd64)
-docker buildx build \
-  --platform linux/arm64,linux/amd64 \
-  -t $REGISTRY/cosmic-coffee-middleware:latest \
-  -t $REGISTRY/cosmic-coffee-middleware:main \
-  --push \
-  ./middleware
 ```
 
 **To build without pushing (save locally for one architecture):**
@@ -127,7 +116,7 @@ export VERSION="v1.0.0"
 ./scripts/build-multiarch.sh
 ```
 
-The script builds all three services (frontend, backend, middleware) for both arm64 and amd64 architectures and pushes them to your registry.
+The script builds all services for both arm64 and amd64 architectures and pushes them to your registry.
 
 ### Building AMD64 Images on Apple Silicon
 
@@ -230,12 +219,7 @@ Wait for PostgreSQL to be ready:
 kubectl wait --for=condition=ready pod -l app=postgres -n cosmic-coffee --timeout=120s
 ```
 
-7. **Deploy Middleware:**
-```bash
-kubectl apply -f middleware-deployment.yaml
-```
-
-9. **Deploy Backend:**
+7. **Deploy Backend:**
 ```bash
 kubectl apply -f backend-deployment.yaml
 ```
@@ -260,7 +244,6 @@ kubectl get services -n cosmic-coffee
 View logs:
 ```bash
 kubectl logs -f deployment/backend -n cosmic-coffee
-kubectl logs -f deployment/middleware -n cosmic-coffee
 kubectl logs -f deployment/frontend -n cosmic-coffee
 ```
 
@@ -333,7 +316,6 @@ kubectl apply -f configmap-init-sql.yaml
 kubectl apply -f postgres-pv.yaml
 kubectl apply -f postgres-pvc.yaml
 kubectl apply -f postgres-deployment.yaml
-kubectl apply -f middleware-deployment.yaml
 kubectl apply -f backend-deployment.yaml
 kubectl apply -f frontend-deployment.yaml
 kubectl apply -f loadgen-deployment.yaml
@@ -362,7 +344,6 @@ Or delete individual resources:
 ```bash
 kubectl delete -f frontend-deployment.yaml
 kubectl delete -f backend-deployment.yaml
-kubectl delete -f middleware-deployment.yaml
 kubectl delete -f postgres-deployment.yaml
 kubectl delete -f postgres-pvc.yaml
 kubectl delete -f postgres-pv.yaml
@@ -408,8 +389,6 @@ images:
   - name: bpschmitt/cosmic-coffee-backend
     newTag: v1.0.0
   - name: bpschmitt/cosmic-coffee-frontend
-    newTag: v1.0.0
-  - name: bpschmitt/cosmic-coffee-middleware
     newTag: v1.0.0
 ```
 

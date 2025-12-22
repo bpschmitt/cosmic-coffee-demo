@@ -361,7 +361,7 @@ This application is designed to demonstrate:
 
 1. **End User Monitoring (EUM)**: Frontend JavaScript performance and user interactions
 2. **Application Performance Monitoring (APM)**: Backend API performance and database queries
-3. **Distributed Tracing**: Track requests across frontend → backend → middleware → database
+3. **Distributed Tracing**: Track requests across frontend → microservices → database
 4. **Log Management**: Application logs from all services
 5. **Custom Metrics**: Order processing times, order counts, revenue metrics
 6. **Error Tracking**: Error handling and exception tracking
