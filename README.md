@@ -51,14 +51,14 @@ graph TB
     Orders -->|Read/Write| DB
     Fulfillment -->|Read/Write| DB
     
-    style Frontend fill:#e1f5ff
-    style Products fill:#fff4e1
-    style Cart fill:#fff4e1
-    style Payment fill:#ffe1f5
-    style Checkout fill:#e1ffe1
-    style Orders fill:#e1ffe1
-    style Fulfillment fill:#fff4e1
-    style DB fill:#e1e1e1
+    style Frontend fill:#0ea5e9,stroke:#0369a1,stroke-width:2px,color:#ffffff
+    style Products fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#ffffff
+    style Cart fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#ffffff
+    style Payment fill:#ec4899,stroke:#db2777,stroke-width:2px,color:#ffffff
+    style Checkout fill:#10b981,stroke:#059669,stroke-width:2px,color:#ffffff
+    style Orders fill:#06b6d4,stroke:#0891b2,stroke-width:2px,color:#ffffff
+    style Fulfillment fill:#f97316,stroke:#ea580c,stroke-width:2px,color:#ffffff
+    style DB fill:#64748b,stroke:#475569,stroke-width:2px,color:#ffffff
 ```
 
 ### Service Communication Flow
