@@ -224,31 +224,59 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
-// Search for orders by ID
+// Search for orders by ID or customer name
 app.get('/api/orders/search', async (req, res) => {
   try {
-    const { orderId } = req.query;
+    const { orderId, customerName, query } = req.query;
     
-    if (!orderId || isNaN(parseInt(orderId))) {
-      return res.status(400).json({ error: 'Valid order ID is required' });
+    // Support both 'orderId', 'customerName', and generic 'query' parameter
+    const searchValue = orderId || customerName || query;
+    
+    if (!searchValue || searchValue.trim() === '') {
+      return res.status(400).json({ error: 'Search query is required (order ID or customer name)' });
     }
     
-    const result = await pool.query(`
-      SELECT o.*, 
-             COALESCE(json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'product_id', oi.product_id,
-                 'quantity', oi.quantity,
-                 'price', oi.price
-               )
-             ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      WHERE o.id = $1
-      GROUP BY o.id
-      ORDER BY o.created_at DESC
-    `, [parseInt(orderId)]);
+    // Determine if search is by ID (numeric) or name (text)
+    const isNumericSearch = !isNaN(parseInt(searchValue)) && /^\d+$/.test(searchValue.trim());
+    
+    let result;
+    if (isNumericSearch) {
+      // Search by order ID
+      result = await pool.query(`
+        SELECT o.*, 
+               COALESCE(json_agg(
+                 json_build_object(
+                   'id', oi.id,
+                   'product_id', oi.product_id,
+                   'quantity', oi.quantity,
+                   'price', oi.price
+                 )
+               ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        WHERE o.id = $1
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+      `, [parseInt(searchValue)]);
+    } else {
+      // Search by customer name (case-insensitive partial match)
+      result = await pool.query(`
+        SELECT o.*, 
+               COALESCE(json_agg(
+                 json_build_object(
+                   'id', oi.id,
+                   'product_id', oi.product_id,
+                   'quantity', oi.quantity,
+                   'price', oi.price
+                 )
+               ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        WHERE LOWER(o.customer_name) LIKE LOWER($1)
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+      `, [`%${searchValue.trim()}%`]);
+    }
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Order not found' });

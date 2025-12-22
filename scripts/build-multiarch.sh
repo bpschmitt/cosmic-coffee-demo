@@ -8,35 +8,69 @@
 
 set -e
 
+# Get the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Change to repository root so relative paths work correctly
+cd "$REPO_ROOT"
+
 # Configuration
 REGISTRY="${DOCKER_REGISTRY:-bpschmitt}"
 VERSION="${VERSION:-latest}"
 PLATFORMS="linux/arm64,linux/amd64"
 
-# Service definitions: name:path:image-name:description
-declare -A SERVICES=(
-  ["frontend"]="../services/frontend:cosmic-coffee-frontend:Frontend"
-  ["products"]="../services/products:cosmic-coffee-products:Products Service (Java)"
-  ["cart"]="../services/cart:cosmic-coffee-cart:Cart Service (.NET)"
-  ["payment"]="../services/payment:cosmic-coffee-payment:Payment Service (Python)"
-  ["checkout"]="../services/checkout:cosmic-coffee-checkout:Checkout Service (Node.js)"
-  ["orders"]="../services/orders:cosmic-coffee-orders:Orders Service (Node.js)"
-  ["fulfillment"]="../services/fulfillment:cosmic-coffee-fulfillment:Fulfillment Service (.NET)"
-  ["loadgen"]="../services/loadgen:cosmic-coffee-loadgen:Loadgen"
-)
+# List of all available services
+ALL_SERVICES="frontend products cart payment checkout orders fulfillment loadgen"
+
+# Function to get service info (path:image-name:description)
+get_service_info() {
+  case "$1" in
+    frontend)
+      echo "services/frontend:cosmic-coffee-frontend:Frontend"
+      ;;
+    products)
+      echo "services/products:cosmic-coffee-products:Products Service (Java)"
+      ;;
+    cart)
+      echo "services/cart:cosmic-coffee-cart:Cart Service (.NET)"
+      ;;
+    payment)
+      echo "services/payment:cosmic-coffee-payment:Payment Service (Python)"
+      ;;
+    checkout)
+      echo "services/checkout:cosmic-coffee-checkout:Checkout Service (Node.js)"
+      ;;
+    orders)
+      echo "services/orders:cosmic-coffee-orders:Orders Service (Node.js)"
+      ;;
+    fulfillment)
+      echo "services/fulfillment:cosmic-coffee-fulfillment:Fulfillment Service (.NET)"
+      ;;
+    loadgen)
+      echo "services/loadgen:cosmic-coffee-loadgen:Loadgen"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
 
 # Get service name from argument (optional)
 SERVICE_NAME="${1:-}"
 
 # Validate service name if provided
-if [ -n "$SERVICE_NAME" ] && [ -z "${SERVICES[$SERVICE_NAME]}" ]; then
-  echo "❌ Unknown service: $SERVICE_NAME"
-  echo ""
-  echo "Available services:"
-  for svc in "${!SERVICES[@]}"; do
-    echo "  - $svc"
-  done
-  exit 1
+if [ -n "$SERVICE_NAME" ]; then
+  SERVICE_INFO=$(get_service_info "$SERVICE_NAME")
+  if [ -z "$SERVICE_INFO" ]; then
+    echo "❌ Unknown service: $SERVICE_NAME"
+    echo ""
+    echo "Available services:"
+    for svc in $ALL_SERVICES; do
+      echo "  - $svc"
+    done
+    exit 1
+  fi
 fi
 
 # Colors for output
@@ -74,7 +108,7 @@ fi
 # Function to build a service
 build_service() {
   local svc_name=$1
-  local svc_info="${SERVICES[$svc_name]}"
+  local svc_info=$(get_service_info "$svc_name")
   IFS=':' read -r svc_path svc_image svc_desc <<< "$svc_info"
   
   echo ""
@@ -88,21 +122,25 @@ build_service() {
 }
 
 # Build services
-BUILT_IMAGES=()
+BUILT_IMAGES=""
 
 if [ -n "$SERVICE_NAME" ]; then
   # Build single service
   build_service "$SERVICE_NAME"
-  svc_info="${SERVICES[$SERVICE_NAME]}"
+  svc_info=$(get_service_info "$SERVICE_NAME")
   IFS=':' read -r svc_path svc_image svc_desc <<< "$svc_info"
-  BUILT_IMAGES+=("${REGISTRY}/${svc_image}:${VERSION}")
+  BUILT_IMAGES="${REGISTRY}/${svc_image}:${VERSION}"
 else
   # Build all services
-  for svc in "${!SERVICES[@]}"; do
+  for svc in $ALL_SERVICES; do
     build_service "$svc"
-    svc_info="${SERVICES[$svc]}"
+    svc_info=$(get_service_info "$svc")
     IFS=':' read -r svc_path svc_image svc_desc <<< "$svc_info"
-    BUILT_IMAGES+=("${REGISTRY}/${svc_image}:${VERSION}")
+    if [ -z "$BUILT_IMAGES" ]; then
+      BUILT_IMAGES="${REGISTRY}/${svc_image}:${VERSION}"
+    else
+      BUILT_IMAGES="$BUILT_IMAGES"$'\n'"${REGISTRY}/${svc_image}:${VERSION}"
+    fi
   done
 fi
 
@@ -110,6 +148,6 @@ echo ""
 echo -e "${GREEN}✅ Images built and pushed successfully!${NC}"
 echo ""
 echo "Images available at:"
-for img in "${BUILT_IMAGES[@]}"; do
+echo "$BUILT_IMAGES" | while IFS= read -r img; do
   echo "  - $img"
 done

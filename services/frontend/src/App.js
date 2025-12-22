@@ -16,7 +16,7 @@ function App() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [searchOrderId, setSearchOrderId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResult, setSearchResult] = useState(null);
 
@@ -50,8 +50,8 @@ function App() {
 
   const searchOrder = async (e) => {
     e.preventDefault();
-    if (!searchOrderId || isNaN(parseInt(searchOrderId))) {
-      setMessage('Please enter a valid order ID');
+    if (!searchQuery || searchQuery.trim() === '') {
+      setMessage('Please enter an order ID or customer name');
       return;
     }
 
@@ -60,16 +60,24 @@ function App() {
     setMessage('');
 
     try {
-      const response = await axios.get(`${API_URL}/api/orders/search?orderId=${searchOrderId}`);
+      const response = await axios.get(`${API_URL}/api/orders/search?query=${encodeURIComponent(searchQuery.trim())}`);
       setSearchResult(response.data);
-      setMessage(`Found order #${searchOrderId}`);
+      if (response.data && response.data.length > 0) {
+        const count = response.data.length;
+        setMessage(`Found ${count} order${count > 1 ? 's' : ''}`);
+      } else {
+        setMessage('No orders found');
+      }
     } catch (error) {
       if (error.response && error.response.status === 404) {
-        setMessage(`Order #${searchOrderId} not found`);
+        setMessage('No orders found');
+        setSearchResult(null);
+      } else if (error.response && error.response.status === 400) {
+        setMessage(error.response.data?.error || 'Invalid search query');
         setSearchResult(null);
       } else {
-        setMessage('Error searching for order');
-        console.error('Error searching order:', error);
+        setMessage('Error searching for orders');
+        console.error('Error searching orders:', error);
       }
     } finally {
       setSearchLoading(false);
@@ -230,9 +238,9 @@ function App() {
             <form onSubmit={searchOrder} className="search-form">
               <input
                 type="text"
-                placeholder="Search by Order ID..."
-                value={searchOrderId}
-                onChange={(e) => setSearchOrderId(e.target.value)}
+                placeholder="Search by Order ID or Customer Name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input"
               />
               <button 
@@ -252,7 +260,7 @@ function App() {
                 <button 
                   onClick={() => {
                     setSearchResult(null);
-                    setSearchOrderId('');
+                    setSearchQuery('');
                     setMessage('');
                   }}
                   className="clear-search-button"

@@ -367,6 +367,7 @@ npm start  # Runs on http://localhost:3000
 ### Orders
 - `GET /api/orders` - Get all orders
 - `GET /api/orders/:id` - Get order by ID
+- `GET /api/orders/search?query=<value>` - Search orders by ID (numeric) or customer name (text, case-insensitive partial match)
 - `POST /api/orders` - Create a new order
 - `PATCH /api/orders/:id/status` - Update order status
 - `GET /api/orders/:id/events` - Get order events
