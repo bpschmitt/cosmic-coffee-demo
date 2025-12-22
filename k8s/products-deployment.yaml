@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: products-config
+  namespace: cosmic-coffee
+data:
+  SPRING_PROFILES_ACTIVE: "production"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "cosmic_coffee"
+  DB_USER: "postgres"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: products-secret
+  namespace: cosmic-coffee
+type: Opaque
+stringData:
+  DB_PASSWORD: "postgres"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products
+  namespace: cosmic-coffee
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: products
+  template:
+    metadata:
+      labels:
+        app: products
+    spec:
+      containers:
+      - name: products
+        image: bpschmitt/cosmic-coffee-products:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 4001
+        envFrom:
+        - configMapRef:
+            name: products-config
+        - secretRef:
+            name: products-secret
+        - secretRef:
+            name: postgres-secret
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: products
+  namespace: cosmic-coffee
+spec:
+  type: ClusterIP
+  selector:
+    app: products
+  ports:
+  - port: 4001
+    targetPort: 4001
+    protocol: TCP
+

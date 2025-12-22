@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+  namespace: cosmic-coffee
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loadgen
+  template:
+    metadata:
+      labels:
+        app: loadgen
+    spec:
+      containers:
+      - name: locust
+        image: bpschmitt/cosmic-coffee-loadgen:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8089
+          name: web-ui
+        - containerPort: 5557
+          name: master
+        - containerPort: 5558
+          name: worker
+        env:
+        - name: LOCUST_HOST
+          value: "http://frontend:80"
+        - name: LOCUST_USERS
+          value: "10"
+        - name: LOCUST_SPAWN_RATE
+          value: "2"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loadgen
+  namespace: cosmic-coffee
+spec:
+  type: ClusterIP
+  selector:
+    app: loadgen
+  ports:
+  - port: 8089
+    targetPort: 8089
+    protocol: TCP
+    name: web-ui

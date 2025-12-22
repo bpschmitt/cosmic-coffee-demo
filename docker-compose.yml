@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:4000
+    depends_on:
+      - products
+      - cart
+      - checkout
+      - orders
+    networks:
+      - demo-network
+
+  products:
+    build:
+      context: ./products
+      dockerfile: Dockerfile
+    ports:
+      - "4001:4001"
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=cosmic_coffee
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY:-}
+    depends_on:
+      - postgres
+    networks:
+      - demo-network
+
+  cart:
+    build:
+      context: ./cart
+      dockerfile: Dockerfile
+    ports:
+      - "4003:4003"
+    environment:
+      - ProductsServiceUrl=http://products:4001
+    depends_on:
+      - products
+    networks:
+      - demo-network
+
+  payment:
+    build:
+      context: ./payment
+      dockerfile: Dockerfile
+    ports:
+      - "4002:4002"
+    environment:
+      - PAYMENT_SLOWDOWN_ENABLED=${PAYMENT_SLOWDOWN_ENABLED:-false}
+    networks:
+      - demo-network
+
+  checkout:
+    build:
+      context: ./checkout
+      dockerfile: Dockerfile
+    ports:
+      - "4004:4004"
+    environment:
+      - NODE_ENV=production
+      - CART_SERVICE_URL=http://cart:4003
+      - PAYMENT_SERVICE_URL=http://payment:4002
+      - ORDERS_SERVICE_URL=http://orders:4000
+    depends_on:
+      - cart
+      - payment
+      - orders
+    networks:
+      - demo-network
+
+  orders:
+    build:
+      context: ./orders
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=cosmic_coffee
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - PRODUCTS_SERVICE_URL=http://products:4001
+      - FULFILLMENT_SERVICE_URL=http://fulfillment:5000
+    depends_on:
+      - postgres
+      - products
+      - fulfillment
+    networks:
+      - demo-network
+
+  fulfillment:
+    build:
+      context: ./fulfillment
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=cosmic_coffee
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    depends_on:
+      - postgres
+    networks:
+      - demo-network
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=cosmic_coffee
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - demo-network
+
+  loadgen:
+    build:
+      context: ./loadgen
+      dockerfile: Dockerfile
+    environment:
+      - LOCUST_HOST=http://frontend:3000
+    depends_on:
+      - frontend
+      - products
+      - cart
+      - payment
+      - checkout
+      - orders
+    networks:
+      - demo-network
+
+volumes:
+  postgres-data:
+
+networks:
+  demo-network:
+    driver: bridge
+

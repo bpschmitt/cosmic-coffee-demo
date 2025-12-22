@@ -1,0 +1,28 @@
+{
+  "name": "cosmic-coffee-middleware",
+  "version": "1.0.0",
+  "description": "Middleware message processing service for Cosmic Coffee Demo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "winston": "^3.11.0",
+    "@newrelic/winston-enricher": "^4.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "demo",
+    "observability",
+    "middleware"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

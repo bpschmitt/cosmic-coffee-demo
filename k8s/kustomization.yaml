@@ -1,0 +1,24 @@
+# Kustomization file for managing all resources together
+# Usage: kubectl apply -k .  (deploy everything)
+#        kubectl delete -k . (delete everything)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cosmic-coffee
+
+resources:
+  - namespace.yaml
+  - secret-postgres.yaml
+  - configmap-init-sql.yaml
+  - postgres-pv.yaml
+  - postgres-pvc.yaml
+  - postgres-deployment.yaml
+  - products-deployment.yaml
+  - cart-deployment.yaml
+  - payment-deployment.yaml
+  - checkout-deployment.yaml
+  - orders-deployment.yaml
+  - fulfillment-deployment.yaml
+  - frontend-deployment.yaml
+  - loadgen-deployment.yaml
+
