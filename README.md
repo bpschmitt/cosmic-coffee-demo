@@ -2,6 +2,46 @@
 
 A lightweight, full-stack demo application designed to showcase Observability tools. This application demonstrates a complete polyglot microservices architecture with services written in Node.js, Java, Python, and .NET, optimized for distributed tracing use cases.
 
+## Table of Contents
+
+- [Architecture](#architecture)
+  - [Architecture Diagram](#architecture-diagram)
+  - [Service Communication Flow](#service-communication-flow)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start with Docker](#quick-start-with-docker)
+- [Quick Start with Kubernetes](#quick-start-with-kubernetes)
+- [Local Development](#local-development)
+  - [Products Service (Java/Spring Boot)](#products-service-javaspring-boot)
+  - [Checkout Service (Node.js/Express)](#checkout-service-nodejsexpress)
+  - [Payment Service (Python/FastAPI)](#payment-service-pythonfastapi)
+  - [Cart Service (.NET/ASP.NET Core)](#cart-service-netaspnet-core)
+  - [Orders Service (Node.js)](#orders-service-nodejs)
+  - [Fulfillment Service (.NET/ASP.NET Core)](#fulfillment-service-netaspnet-core)
+  - [Frontend](#frontend)
+- [API Endpoints](#api-endpoints)
+  - [Products](#products)
+  - [Cart](#cart)
+  - [Payment](#payment)
+  - [Checkout](#checkout)
+  - [Orders](#orders)
+  - [Fulfillment](#fulfillment)
+  - [Health & Metrics](#health--metrics)
+- [Instrumentation](#instrumentation)
+  - [Frontend JavaScript Instrumentation](#frontend-javascript-instrumentation)
+  - [Payment Service Configuration](#payment-service-configuration)
+  - [Service Instrumentation](#service-instrumentation)
+- [Database Schema](#database-schema)
+- [Kubernetes Deployment](#kubernetes-deployment)
+- [Observability Scenarios](#observability-scenarios)
+- [Troubleshooting](#troubleshooting)
+  - [Database Connection Issues](#database-connection-issues)
+  - [Frontend Not Loading](#frontend-not-loading)
+  - [Orders Not Processing](#orders-not-processing)
+  - [Payment Service Slowdown](#payment-service-slowdown)
+- [License](#license)
+- [Contributing](#contributing)
+
 ## Architecture
 
 The application consists of multiple microservices in a polyglot architecture:
