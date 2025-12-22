@@ -457,6 +457,7 @@ This application is designed to demonstrate:
 5. **Custom Metrics**: Order processing times, order counts, revenue metrics
 6. **Error Tracking**: Error handling and exception tracking
 7. **Service Dependencies**: Map dependencies between services
+8. **Container/Kubernetes Infrastructure**: Container metrics, pod health, resource utilization, and Kubernetes cluster observability
 
 ## Troubleshooting
 
