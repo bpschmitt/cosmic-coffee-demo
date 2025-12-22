@@ -3,7 +3,7 @@ version: '3.8'
 services:
   frontend:
     build:
-      context: ./frontend
+      context: ../../services/frontend
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
@@ -19,7 +19,7 @@ services:
 
   products:
     build:
-      context: ./products
+      context: ../../services/products
       dockerfile: Dockerfile
     ports:
       - "4001:4001"
@@ -38,7 +38,7 @@ services:
 
   cart:
     build:
-      context: ./cart
+      context: ../../services/cart
       dockerfile: Dockerfile
     ports:
       - "4003:4003"
@@ -51,7 +51,7 @@ services:
 
   payment:
     build:
-      context: ./payment
+      context: ../../services/payment
       dockerfile: Dockerfile
     ports:
       - "4002:4002"
@@ -62,7 +62,7 @@ services:
 
   checkout:
     build:
-      context: ./checkout
+      context: ../../services/checkout
       dockerfile: Dockerfile
     ports:
       - "4004:4004"
@@ -80,7 +80,7 @@ services:
 
   orders:
     build:
-      context: ./orders
+      context: ../../services/orders
       dockerfile: Dockerfile
     ports:
       - "4000:4000"
@@ -102,7 +102,7 @@ services:
 
   fulfillment:
     build:
-      context: ./fulfillment
+      context: ../../services/fulfillment
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
@@ -127,13 +127,13 @@ services:
       - POSTGRES_PASSWORD=postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../../database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - demo-network
 
   loadgen:
     build:
-      context: ./loadgen
+      context: ../../services/loadgen
       dockerfile: Dockerfile
     environment:
       - LOCUST_HOST=http://frontend:3000

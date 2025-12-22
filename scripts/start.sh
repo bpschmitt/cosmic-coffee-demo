@@ -26,7 +26,7 @@ else
 fi
 
 echo "📦 Building and starting containers..."
-$COMPOSE_CMD up --build -d
+$COMPOSE_CMD -f ../infrastructure/docker/docker-compose.yml up --build -d
 
 echo "⏳ Waiting for services to be ready..."
 sleep 10

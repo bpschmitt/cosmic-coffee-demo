@@ -106,12 +106,12 @@ cd cosmic-coffee-demo
 
 2. Start all services:
 ```bash
-docker-compose up --build
+docker-compose -f infrastructure/docker/docker-compose.yml up --build
 ```
 
 Or use the helper script:
 ```bash
-./scripts/start.sh
+scripts/start.sh
 ```
 
 3. Access the application:
@@ -126,12 +126,12 @@ Or use the helper script:
 
 4. Stop all services:
 ```bash
-docker-compose down
+docker-compose -f infrastructure/docker/docker-compose.yml down
 ```
 
 Or use the helper script:
 ```bash
-./scripts/stop.sh
+scripts/stop.sh
 ```
 
 ## Local Development
@@ -139,7 +139,7 @@ Or use the helper script:
 ### Products Service (Java/Spring Boot)
 
 ```bash
-cd products
+cd services/products
 mvn spring-boot:run
 ```
 
@@ -162,7 +162,7 @@ NEW_RELIC_LICENSE_KEY=your_license_key
 ### Checkout Service (Node.js/Express)
 
 ```bash
-cd checkout
+cd services/checkout
 npm install
 node server.js
 ```
@@ -179,7 +179,7 @@ NEW_RELIC_LICENSE_KEY=your_license_key
 ### Payment Service (Python/FastAPI)
 
 ```bash
-cd payment
+cd services/payment
 pip install -r requirements.txt
 uvicorn main:app --reload --port 4002
 ```
@@ -192,7 +192,7 @@ PAYMENT_SLOWDOWN_ENABLED=false  # Set to true to enable slowdown simulation
 ### Cart Service (.NET/ASP.NET Core)
 
 ```bash
-cd cart
+cd services/cart
 dotnet run
 ```
 
@@ -205,7 +205,7 @@ ASPNETCORE_URLS=http://0.0.0.0:4003
 ### Orders Service (Node.js)
 
 ```bash
-cd orders
+cd services/orders
 npm install
 npm run dev  # Uses nodemon for auto-reload
 ```
@@ -224,7 +224,7 @@ FULFILLMENT_SERVICE_URL=http://localhost:5000
 ### Fulfillment Service (.NET/ASP.NET Core)
 
 ```bash
-cd fulfillment
+cd services/fulfillment
 dotnet run
 ```
 
@@ -240,7 +240,7 @@ DB_PASSWORD=postgres
 ### Frontend
 
 ```bash
-cd frontend
+cd services/frontend
 npm install
 npm start  # Runs on http://localhost:3000
 ```
@@ -341,7 +341,7 @@ See `database/init.sql` for the complete schema.
 For Kubernetes deployment, you can create manifests for each service. Example structure:
 
 ```
-k8s/
+infrastructure/k8s/
   ├── frontend-deployment.yaml
   ├── products-deployment.yaml
   ├── cart-deployment.yaml

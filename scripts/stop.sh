@@ -26,7 +26,7 @@ else
 fi
 
 echo "📦 Stopping containers..."
-$COMPOSE_CMD down
+$COMPOSE_CMD -f ../infrastructure/docker/docker-compose.yml down
 
 echo "✅ All services have been stopped!"
 echo ""

@@ -44,7 +44,7 @@ docker buildx build \
   -t ${REGISTRY}/cosmic-coffee-frontend:${VERSION} \
   -t ${REGISTRY}/cosmic-coffee-frontend:latest \
   --push \
-  ./frontend
+  ../services/frontend
 
 echo ""
 echo -e "${GREEN}Building Products Service (Java)...${NC}"
@@ -53,7 +53,7 @@ docker buildx build \
   -t ${REGISTRY}/cosmic-coffee-products:${VERSION} \
   -t ${REGISTRY}/cosmic-coffee-products:latest \
   --push \
-  ./products
+  ../services/products
 
 echo ""
 echo -e "${GREEN}Building Cart Service (.NET)...${NC}"
@@ -62,7 +62,7 @@ docker buildx build \
   -t ${REGISTRY}/cosmic-coffee-cart:${VERSION} \
   -t ${REGISTRY}/cosmic-coffee-cart:latest \
   --push \
-  ./cart
+  ../services/cart
 
 echo ""
 echo -e "${GREEN}Building Payment Service (Python)...${NC}"
@@ -71,7 +71,7 @@ docker buildx build \
   -t ${REGISTRY}/cosmic-coffee-payment:${VERSION} \
   -t ${REGISTRY}/cosmic-coffee-payment:latest \
   --push \
-  ./payment
+  ../services/payment
 
 echo ""
 echo -e "${GREEN}Building Checkout Service (Node.js)...${NC}"
@@ -80,7 +80,7 @@ docker buildx build \
   -t ${REGISTRY}/cosmic-coffee-checkout:${VERSION} \
   -t ${REGISTRY}/cosmic-coffee-checkout:latest \
   --push \
-  ./checkout-node
+  ../services/checkout
 
 echo ""
 echo -e "${GREEN}Building Orders Service (Node.js)...${NC}"
@@ -89,7 +89,7 @@ docker buildx build \
   -t ${REGISTRY}/cosmic-coffee-orders:${VERSION} \
   -t ${REGISTRY}/cosmic-coffee-orders:latest \
   --push \
-  ./orders
+  ../services/orders
 
 echo ""
 echo -e "${GREEN}Building Fulfillment Service (.NET)...${NC}"
@@ -98,7 +98,7 @@ docker buildx build \
   -t ${REGISTRY}/cosmic-coffee-fulfillment:${VERSION} \
   -t ${REGISTRY}/cosmic-coffee-fulfillment:latest \
   --push \
-  ./fulfillment
+  ../services/fulfillment
 
 echo ""
 echo -e "${GREEN}Building Loadgen...${NC}"
@@ -107,7 +107,7 @@ docker buildx build \
   -t ${REGISTRY}/cosmic-coffee-loadgen:${VERSION} \
   -t ${REGISTRY}/cosmic-coffee-loadgen:latest \
   --push \
-  ./loadgen
+  ../services/loadgen
 
 echo ""
 echo -e "${GREEN}✅ All images built and pushed successfully!${NC}"

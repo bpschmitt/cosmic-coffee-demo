@@ -33,8 +33,8 @@ If you're on an Apple Silicon Mac and need to build for amd64 (x86_64) architect
 
 ```bash
 # Build for amd64 only (slower due to emulation, but ensures compatibility)
-docker buildx build --platform linux/amd64 -t cosmic-coffee-frontend:latest --load ./frontend
-docker buildx build --platform linux/amd64 -t cosmic-coffee-backend:latest --load ./backend
+docker buildx build --platform linux/amd64 -t cosmic-coffee-frontend:latest --load ../../services/frontend
+docker buildx build --platform linux/amd64 -t cosmic-coffee-backend:latest --load ../../services/backend
 ```
 
 **Note:** The `--load` flag only works with single-platform builds. Building for amd64 on Apple Silicon uses QEMU emulation, which is slower but allows you to create amd64 images locally.
@@ -43,15 +43,15 @@ If using minikube:
 ```bash
 eval $(minikube docker-env)
 # Build for your native architecture (arm64) - faster
-docker build -t cosmic-coffee-frontend:latest ./frontend
-docker build -t cosmic-coffee-backend:latest ./backend
+docker build -t cosmic-coffee-frontend:latest ../../services/frontend
+docker build -t cosmic-coffee-backend:latest ../../services/backend
 ```
 
 If using kind:
 ```bash
 # Build for your native architecture (arm64) - faster
-docker build -t cosmic-coffee-frontend:latest ./frontend
-docker build -t cosmic-coffee-backend:latest ./backend
+docker build -t cosmic-coffee-frontend:latest ../../services/frontend
+docker build -t cosmic-coffee-backend:latest ../../services/backend
 
 # Load into kind
 kind load docker-image cosmic-coffee-frontend:latest
@@ -74,7 +74,7 @@ docker buildx build \
   -t $REGISTRY/cosmic-coffee-frontend:latest \
   -t $REGISTRY/cosmic-coffee-frontend:main \
   --push \
-  ./frontend
+  ../../services/frontend
 
 # Build and push backend (arm64 + amd64)
 docker buildx build \
@@ -82,7 +82,7 @@ docker buildx build \
   -t $REGISTRY/cosmic-coffee-backend:latest \
   -t $REGISTRY/cosmic-coffee-backend:main \
   --push \
-  ./backend
+  ../../services/backend
 
 ```
 
@@ -94,7 +94,7 @@ docker buildx build \
   --platform linux/arm64,linux/amd64 \
   -t cosmic-coffee-frontend:latest \
   --load \
-  ./frontend
+  ../../services/frontend
 ```
 
 **Note:** The `--load` flag only works for single-platform builds. For multi-platform builds, you must use `--push` to push to a registry, then pull the specific platform you need.
@@ -113,7 +113,7 @@ export DOCKER_REGISTRY="your-registry"
 export VERSION="v1.0.0"
 
 # Build and push all images
-./scripts/build-multiarch.sh
+../../scripts/build-multiarch.sh
 ```
 
 The script builds all services for both arm64 and amd64 architectures and pushes them to your registry.
@@ -125,18 +125,18 @@ If you're on an Apple Silicon Mac (M1/M2/M3) and need to build amd64 images loca
 **Option A: Using the convenience script**
 ```bash
 # Build and load amd64 images locally (slower due to QEMU emulation)
-./scripts/build-amd64.sh
+../../scripts/build-amd64.sh
 
 # Or build and push to registry
 export DOCKER_REGISTRY="your-registry"
 export PUSH="true"
-./scripts/build-amd64.sh
+../../scripts/build-amd64.sh
 ```
 
 **Option B: Using buildx directly**
 ```bash
 # Build for amd64 only
-docker buildx build --platform linux/amd64 -t cosmic-coffee-backend:latest --load ./backend
+docker buildx build --platform linux/amd64 -t cosmic-coffee-backend:latest --load ../../services/backend
 ```
 
 **Performance Note:** Building amd64 images on Apple Silicon uses QEMU emulation, which is significantly slower than native arm64 builds. For faster builds, consider:
