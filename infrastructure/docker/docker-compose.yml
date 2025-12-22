@@ -93,6 +93,7 @@ services:
       - DB_PASSWORD=postgres
       - PRODUCTS_SERVICE_URL=http://products:4001
       - FULFILLMENT_SERVICE_URL=http://fulfillment:5000
+      - ENABLE_N_PLUS_ONE_QUERIES=${ENABLE_N_PLUS_ONE_QUERIES:-false}
     depends_on:
       - postgres
       - products

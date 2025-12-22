@@ -28,8 +28,8 @@ A lightweight, full-stack demo application designed to showcase Observability to
   - [Fulfillment](#fulfillment)
   - [Health & Metrics](#health--metrics)
 - [Instrumentation](#instrumentation)
-  - [Frontend JavaScript Instrumentation](#frontend-javascript-instrumentation)
   - [Payment Service Configuration](#payment-service-configuration)
+  - [Orders Service N+1 Query Configuration](#orders-service-n1-query-configuration)
   - [Service Instrumentation](#service-instrumentation)
 - [Database Schema](#database-schema)
 - [Kubernetes Deployment](#kubernetes-deployment)
@@ -314,6 +314,7 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 PRODUCTS_SERVICE_URL=http://localhost:4001
 FULFILLMENT_SERVICE_URL=http://localhost:5000
+ENABLE_N_PLUS_ONE_QUERIES=false  # Set to true to enable N+1 queries for demos
 ```
 
 ### Fulfillment Service (.NET/ASP.NET Core)
@@ -372,6 +373,13 @@ npm start  # Runs on http://localhost:3000
 - `PATCH /api/orders/:id/status` - Update order status
 - `GET /api/orders/:id/events` - Get order events
 
+**Configuration:**
+- `ENABLE_N_PLUS_ONE_QUERIES` - Enable N+1 query pattern for demo purposes (default: `false`)
+  - Default (`false`): Uses optimized batch queries - collects unique product IDs and fetches them in parallel
+  - When enabled (`true`): Uses N+1 query pattern - makes one HTTP request per product ID
+  - Useful for demonstrating N+1 query problems in observability tools
+  - Performance impact: With N+1 enabled, fetching 10 orders with 3 items each makes 30 API calls instead of 1-10 parallel calls
+
 ### Fulfillment
 - `POST /api/fulfillment/process` - Process order for fulfillment
 
@@ -380,19 +388,6 @@ npm start  # Runs on http://localhost:3000
 - `GET /api/metrics` - Application metrics (Orders service)
 
 ## Instrumentation
-
-### Frontend JavaScript Instrumentation
-
-The frontend includes hooks for JavaScript APM agents. To instrument with your observability tool:
-
-1. **New Relic**: Add the New Relic loader script to `frontend/public/index.html`:
-```html
-<script src="https://js.newrelic.com/nr-loader-min.js" data-account-id="YOUR_ACCOUNT_ID"></script>
-```
-
-2. **Custom Events**: The code includes example instrumentation hooks (commented out) in:
-   - `frontend/src/App.js` - User interactions and API calls
-   - `frontend/src/index.js` - Application initialization
 
 ### Payment Service Configuration
 
@@ -496,6 +491,47 @@ kubectl rollout restart deployment/payment -n cosmic-coffee
 ```
 
 The slowdown will start automatically after 15 minutes and repeat every 15 minutes, with each slowdown period lasting 5 minutes.
+
+### Orders Service N+1 Query Configuration
+
+The Orders service includes a configurable N+1 query feature flag for observability demonstrations:
+
+**Environment Variables:**
+- `ENABLE_N_PLUS_ONE_QUERIES` - Enable/disable N+1 query pattern
+  - Default: `false` (optimized batch queries)
+  - Set to `true` to enable N+1 queries for demo purposes
+  - When disabled (default):
+    - Collects all unique product IDs across orders/items
+    - Fetches all products in parallel using `Promise.all()`
+    - Uses a product map for efficient lookup
+    - Optimal performance - 1 batch request regardless of order/item count
+  - When enabled:
+    - Makes one HTTP request per product ID
+    - N+1 pattern: For N items, makes N separate API calls
+    - Useful for demonstrating query optimization issues in observability tools
+
+**Example usage:**
+
+**Docker Compose:**
+```bash
+# Default: Optimized queries (recommended)
+docker-compose up
+
+# Enable N+1 queries for demo
+ENABLE_N_PLUS_ONE_QUERIES=true docker-compose up
+```
+
+**Kubernetes:**
+```bash
+# Update ConfigMap or deployment
+kubectl set env deployment/orders ENABLE_N_PLUS_ONE_QUERIES=true -n cosmic-coffee
+kubectl rollout restart deployment/orders -n cosmic-coffee
+
+# To disable (default):
+kubectl set env deployment/orders ENABLE_N_PLUS_ONE_QUERIES=false -n cosmic-coffee
+```
+
+The service logs the active mode at startup for visibility.
 
 ## License
 

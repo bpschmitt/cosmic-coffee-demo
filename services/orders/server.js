@@ -35,6 +35,49 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || 'postgres',
 });
 
+// Feature flag: Enable N+1 queries for demo purposes (default: false = optimized mode)
+const ENABLE_N_PLUS_ONE_QUERIES = process.env.ENABLE_N_PLUS_ONE_QUERIES === 'true';
+
+// Log the query mode at startup
+logger.info('Orders service query mode', {
+  n_plus_one_mode: ENABLE_N_PLUS_ONE_QUERIES,
+  mode: ENABLE_N_PLUS_ONE_QUERIES ? 'N+1 queries (demo mode)' : 'Optimized batch queries (default)'
+});
+
+// Helper function to fetch multiple products in parallel (optimized mode)
+async function fetchProductsBatch(productIds, productsUrl, traceHeaders) {
+  if (!productIds || productIds.length === 0) {
+    return {};
+  }
+  
+  // Get unique product IDs
+  const uniqueIds = [...new Set(productIds)];
+  
+  // Fetch all products in parallel
+  const productPromises = uniqueIds.map(async (id) => {
+    try {
+      const response = await axios.get(`${productsUrl}/api/products/${id}`, {
+        headers: traceHeaders,
+        timeout: 2000
+      });
+      return { id, data: response.data };
+    } catch (error) {
+      logger.warn('Failed to fetch product', { product_id: id, err: error });
+      return { id, data: null };
+    }
+  });
+  
+  const results = await Promise.all(productPromises);
+  
+  // Build map: product_id -> product_data
+  const productMap = {};
+  results.forEach(({ id, data }) => {
+    productMap[id] = data || { name: 'Unknown Product', price: 0 };
+  });
+  
+  return productMap;
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -84,31 +127,51 @@ app.post('/api/orders', async (req, res) => {
     const productPrices = {};
     
     // Get product prices for order_items table (enrichment, not validation)
-    for (const item of items) {
-      try {
-        const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
-          headers: traceHeaders,
-          timeout: 5000
-        });
-        
-        if (productResponse.data && productResponse.data.price) {
-          const price = parseFloat(productResponse.data.price);
+    if (ENABLE_N_PLUS_ONE_QUERIES) {
+      // N+1 query mode: Make one request per item (for demo purposes)
+      for (const item of items) {
+        try {
+          const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
+            headers: traceHeaders,
+            timeout: 5000
+          });
+          
+          if (productResponse.data && productResponse.data.price) {
+            const price = parseFloat(productResponse.data.price);
+            productPrices[item.product_id] = price;
+            total += price * item.quantity;
+          } else {
+            // If product not found, use a default price (shouldn't happen in normal flow)
+            logger.warn('Product not found during order creation, using default price', { product_id: item.product_id });
+            const defaultPrice = 0;
+            productPrices[item.product_id] = defaultPrice;
+          }
+        } catch (error) {
+          // Log warning but don't fail order creation (products were validated in Checkout)
+          logger.warn('Error fetching product price during order creation', { 
+            err: error,
+            product_id: item.product_id 
+          });
+          const defaultPrice = 0;
+          productPrices[item.product_id] = defaultPrice;
+        }
+      }
+    } else {
+      // Optimized mode: Fetch all products in parallel batch
+      const productIds = items.map(item => item.product_id);
+      const productMap = await fetchProductsBatch(productIds, productsUrl, traceHeaders);
+      
+      for (const item of items) {
+        const product = productMap[item.product_id];
+        if (product && product.price) {
+          const price = parseFloat(product.price);
           productPrices[item.product_id] = price;
           total += price * item.quantity;
         } else {
-          // If product not found, use a default price (shouldn't happen in normal flow)
           logger.warn('Product not found during order creation, using default price', { product_id: item.product_id });
           const defaultPrice = 0;
           productPrices[item.product_id] = defaultPrice;
         }
-      } catch (error) {
-        // Log warning but don't fail order creation (products were validated in Checkout)
-        logger.warn('Error fetching product price during order creation', { 
-          err: error,
-          product_id: item.product_id 
-        });
-        const defaultPrice = 0;
-        productPrices[item.product_id] = defaultPrice;
       }
     }
     
@@ -192,30 +255,62 @@ app.get('/api/orders', async (req, res) => {
       tracestate: req.headers.tracestate
     };
     
-    const enrichedOrders = await Promise.all(result.rows.map(async (order) => {
-      if (order.items && order.items.length > 0) {
-        const enrichedItems = await Promise.all(order.items.map(async (item) => {
-          try {
-            const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
-              headers: traceHeaders,
-              timeout: 2000
-            });
+    let enrichedOrders;
+    if (ENABLE_N_PLUS_ONE_QUERIES) {
+      // N+1 query mode: Nested loops - one request per item per order (for demo purposes)
+      enrichedOrders = await Promise.all(result.rows.map(async (order) => {
+        if (order.items && order.items.length > 0) {
+          const enrichedItems = await Promise.all(order.items.map(async (item) => {
+            try {
+              const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
+                headers: traceHeaders,
+                timeout: 2000
+              });
+              return {
+                ...item,
+                product_name: productResponse.data?.name || 'Unknown Product'
+              };
+            } catch (error) {
+              logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
+              return {
+                ...item,
+                product_name: 'Unknown Product'
+              };
+            }
+          }));
+          order.items = enrichedItems;
+        }
+        return order;
+      }));
+    } else {
+      // Optimized mode: Collect all unique product IDs and fetch in one batch
+      const allProductIds = [];
+      result.rows.forEach(order => {
+        if (order.items && order.items.length > 0) {
+          order.items.forEach(item => {
+            if (item.product_id) {
+              allProductIds.push(item.product_id);
+            }
+          });
+        }
+      });
+      
+      const productMap = await fetchProductsBatch(allProductIds, productsUrl, traceHeaders);
+      
+      // Enrich all orders using the product map
+      enrichedOrders = result.rows.map(order => {
+        if (order.items && order.items.length > 0) {
+          order.items = order.items.map(item => {
+            const product = productMap[item.product_id];
             return {
               ...item,
-              product_name: productResponse.data?.name || 'Unknown Product'
+              product_name: product?.name || 'Unknown Product'
             };
-          } catch (error) {
-            logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
-            return {
-              ...item,
-              product_name: 'Unknown Product'
-            };
-          }
-        }));
-        order.items = enrichedItems;
-      }
-      return order;
-    }));
+          });
+        }
+        return order;
+      });
+    }
     
     res.json(enrichedOrders);
   } catch (error) {
@@ -289,29 +384,63 @@ app.get('/api/orders/search', async (req, res) => {
       tracestate: req.headers.tracestate
     };
     
-    const order = result.rows[0];
-    if (order.items && order.items.length > 0) {
-      order.items = await Promise.all(order.items.map(async (item) => {
-        try {
-          const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
-            headers: traceHeaders,
-            timeout: 2000
-          });
-          return {
-            ...item,
-            product_name: productResponse.data?.name || 'Unknown Product'
-          };
-        } catch (error) {
-          logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
-          return {
-            ...item,
-            product_name: 'Unknown Product'
-          };
+    let enrichedOrders;
+    if (ENABLE_N_PLUS_ONE_QUERIES) {
+      // N+1 query mode: One request per item (for demo purposes)
+      enrichedOrders = await Promise.all(result.rows.map(async (order) => {
+        if (order.items && order.items.length > 0) {
+          order.items = await Promise.all(order.items.map(async (item) => {
+            try {
+              const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
+                headers: traceHeaders,
+                timeout: 2000
+              });
+              return {
+                ...item,
+                product_name: productResponse.data?.name || 'Unknown Product'
+              };
+            } catch (error) {
+              logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
+              return {
+                ...item,
+                product_name: 'Unknown Product'
+              };
+            }
+          }));
         }
+        return order;
       }));
+    } else {
+      // Optimized mode: Collect all unique product IDs and fetch in one batch
+      const allProductIds = [];
+      result.rows.forEach(order => {
+        if (order.items && order.items.length > 0) {
+          order.items.forEach(item => {
+            if (item.product_id) {
+              allProductIds.push(item.product_id);
+            }
+          });
+        }
+      });
+      
+      const productMap = await fetchProductsBatch(allProductIds, productsUrl, traceHeaders);
+      
+      // Enrich all orders using the product map
+      enrichedOrders = result.rows.map(order => {
+        if (order.items && order.items.length > 0) {
+          order.items = order.items.map(item => {
+            const product = productMap[item.product_id];
+            return {
+              ...item,
+              product_name: product?.name || 'Unknown Product'
+            };
+          });
+        }
+        return order;
+      });
     }
     
-    res.json([order]);
+    res.json(enrichedOrders);
   } catch (error) {
     logger.error('Error searching orders', { err: error });
     res.status(500).json({ error: 'Failed to search orders' });
@@ -340,24 +469,40 @@ app.get('/api/orders/:id', async (req, res) => {
       tracestate: req.headers.tracestate
     };
     
-    const enrichedItems = await Promise.all(itemsResult.rows.map(async (item) => {
-      try {
-        const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
-          headers: traceHeaders,
-          timeout: 2000
-        });
+    let enrichedItems;
+    if (ENABLE_N_PLUS_ONE_QUERIES) {
+      // N+1 query mode: One request per item (for demo purposes)
+      enrichedItems = await Promise.all(itemsResult.rows.map(async (item) => {
+        try {
+          const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
+            headers: traceHeaders,
+            timeout: 2000
+          });
+          return {
+            ...item,
+            product_name: productResponse.data?.name || 'Unknown Product'
+          };
+        } catch (error) {
+          logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
+          return {
+            ...item,
+            product_name: 'Unknown Product'
+          };
+        }
+      }));
+    } else {
+      // Optimized mode: Fetch all products in parallel batch
+      const productIds = itemsResult.rows.map(item => item.product_id);
+      const productMap = await fetchProductsBatch(productIds, productsUrl, traceHeaders);
+      
+      enrichedItems = itemsResult.rows.map(item => {
+        const product = productMap[item.product_id];
         return {
           ...item,
-          product_name: productResponse.data?.name || 'Unknown Product'
+          product_name: product?.name || 'Unknown Product'
         };
-      } catch (error) {
-        logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
-        return {
-          ...item,
-          product_name: 'Unknown Product'
-        };
-      }
-    }));
+      });
+    }
     
     const order = orderResult.rows[0];
     order.items = enrichedItems;
