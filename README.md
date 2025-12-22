@@ -134,6 +134,61 @@ Or use the helper script:
 scripts/stop.sh
 ```
 
+## Quick Start with Kubernetes
+
+1. **Prerequisites:**
+   - Kubernetes cluster (local with minikube/kind, or cloud-based)
+   - kubectl configured to access your cluster
+   - Docker images built and available (see [infrastructure/k8s/README.md](infrastructure/k8s/README.md) for build instructions)
+
+2. **Deploy all services:**
+```bash
+cd infrastructure/k8s
+kubectl apply -k .
+```
+
+3. **Wait for pods to be ready:**
+```bash
+kubectl wait --for=condition=ready pod -l app=frontend -n cosmic-coffee --timeout=300s
+kubectl wait --for=condition=ready pod -l app=postgres -n cosmic-coffee --timeout=120s
+```
+
+4. **Access the application:**
+
+   Port-forward to the frontend service:
+```bash
+kubectl port-forward service/frontend 3000:80 -n cosmic-coffee
+```
+
+   Then access at: http://localhost:3000
+
+   Or port-forward to individual services:
+   - Products API: `kubectl port-forward service/products 4001:4001 -n cosmic-coffee`
+   - Payment API: `kubectl port-forward service/payment 4002:4002 -n cosmic-coffee`
+   - Cart API: `kubectl port-forward service/cart 4003:4003 -n cosmic-coffee`
+   - Checkout API: `kubectl port-forward service/checkout 4004:4004 -n cosmic-coffee`
+   - Orders API: `kubectl port-forward service/orders 4000:4000 -n cosmic-coffee`
+   - Fulfillment API: `kubectl port-forward service/fulfillment 5000:5000 -n cosmic-coffee`
+
+5. **Check service status:**
+```bash
+kubectl get pods -n cosmic-coffee
+kubectl get services -n cosmic-coffee
+```
+
+6. **View logs:**
+```bash
+kubectl logs -f deployment/frontend -n cosmic-coffee
+```
+
+7. **Cleanup:**
+```bash
+cd infrastructure/k8s
+kubectl delete -k .
+```
+
+For detailed Kubernetes deployment instructions, build options, and troubleshooting, see [infrastructure/k8s/README.md](infrastructure/k8s/README.md).
+
 ## Local Development
 
 ### Products Service (Java/Spring Boot)
