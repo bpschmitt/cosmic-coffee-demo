@@ -2,9 +2,15 @@
 
 # Cosmic Coffee AMD64 Docker Build Script for Apple Silicon
 # Builds Docker images for amd64 architecture on Apple Silicon (M1/M2/M3) Macs
-# Usage: ./build-amd64.sh [service-name]
+# Usage: ./build-amd64.sh [service-name] [version]
 #   If service-name is provided, builds only that service
-#   If no argument, builds all services
+#   If version is provided, uses that version (default: "latest")
+#   If no arguments, builds all services with "latest" version
+#   Examples:
+#     ./build-amd64.sh                    # Build all services with "latest"
+#     ./build-amd64.sh frontend           # Build frontend with "latest"
+#     ./build-amd64.sh frontend v1.0.0    # Build frontend with "v1.0.0"
+#     ./build-amd64.sh v1.0.0             # Build all services with "v1.0.0"
 
 set -e
 
@@ -17,7 +23,6 @@ cd "$REPO_ROOT"
 
 # Configuration
 REGISTRY="${DOCKER_REGISTRY:-bpschmitt}"
-VERSION="${VERSION:-latest}"
 PLATFORM="linux/amd64"
 
 # List of all available services
@@ -56,8 +61,59 @@ get_service_info() {
   esac
 }
 
-# Get service name from argument (optional)
-SERVICE_NAME="${1:-}"
+# Parse arguments: [service-name] [version]
+ARG1="${1:-}"
+ARG2="${2:-}"
+
+# Get version from environment variable if set (before we parse arguments)
+ENV_VERSION="${VERSION:-}"
+
+# Determine service name and version
+SERVICE_NAME=""
+VERSION=""
+
+if [ -n "$ARG1" ]; then
+  # Check if first argument is a valid service name
+  SERVICE_INFO=$(get_service_info "$ARG1")
+  if [ -n "$SERVICE_INFO" ]; then
+    # First argument is a service name
+    SERVICE_NAME="$ARG1"
+    # Second argument (if present) is the version, otherwise check env var or use "latest"
+    if [ -n "$ARG2" ]; then
+      VERSION="$ARG2"
+    elif [ -n "$ENV_VERSION" ]; then
+      VERSION="$ENV_VERSION"
+    else
+      VERSION="latest"
+    fi
+  else
+    # First argument is not a service name, treat it as version
+    VERSION="$ARG1"
+    # If second argument is provided, it should be a service name
+    if [ -n "$ARG2" ]; then
+      SERVICE_INFO=$(get_service_info "$ARG2")
+      if [ -z "$SERVICE_INFO" ]; then
+        echo "❌ Unknown service: $ARG2"
+        echo ""
+        echo "Available services:"
+        for svc in $ALL_SERVICES; do
+          echo "  - $svc"
+        done
+        exit 1
+      fi
+      SERVICE_NAME="$ARG2"
+    fi
+  fi
+fi
+
+# Set default version if not provided (check environment variable, then default to "latest")
+if [ -z "$VERSION" ]; then
+  if [ -n "$ENV_VERSION" ]; then
+    VERSION="$ENV_VERSION"
+  else
+    VERSION="latest"
+  fi
+fi
 
 # Validate service name if provided
 if [ -n "$SERVICE_NAME" ]; then
