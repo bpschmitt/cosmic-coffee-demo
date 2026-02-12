@@ -19,7 +19,7 @@ spec:
         imagePullPolicy: Always
         env:
         - name: PAYMENT_SLOWDOWN_ENABLED
-          value: "true"
+          value: "false"
         ports:
         - containerPort: 4002
         resources:
