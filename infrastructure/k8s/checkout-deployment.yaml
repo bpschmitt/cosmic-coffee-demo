@@ -39,6 +39,38 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
+      - name: network-disturber
+        image: nicolaka/netshoot
+        env:
+        - name: CHAOS_ENABLED
+          value: "false" # Default to off for the start of your demo
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            echo "Network Disturber active. Chaos is currently: $CHAOS_ENABLED"
+            
+            while true; do
+              if [ "$CHAOS_ENABLED" = "true" ]; then
+                echo "$(date) - [CHAOS ACTIVE] Injecting 20% loss/200ms delay..."
+                tc qdisc replace dev eth0 root netem loss 20% delay 200ms
+              else
+                echo "$(date) - [QUIET MODE] Ensuring network is clean..."
+                tc qdisc del dev eth0 root 2>/dev/null
+              fi
+              
+              # Sleep duration: shorter sleep here allows faster response to env changes
+              sleep 5
+            done
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+          requests:
+            cpu: "50m"
+            memory: "32Mi"
         # livenessProbe:
         #   httpGet:
         #     path: /health
