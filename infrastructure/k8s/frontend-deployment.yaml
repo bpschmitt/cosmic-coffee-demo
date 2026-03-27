@@ -1,11 +1,3 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: coffee-frontend-config
-  namespace: cosmic-coffee
-data:
-  REACT_APP_API_URL: ""
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,11 +20,8 @@ spec:
         ports:
         - containerPort: 3000
         env:
-          - name: LOCUST_HOST
-            value: "http://coffee-frontend:80"
-        envFrom:
-        - configMapRef:
-            name: coffee-frontend-config
+        - name: REACT_APP_API_URL
+          value: ""
         resources:
           requests:
             memory: "64Mi"

@@ -38,6 +38,9 @@ const pool = new Pool({
 // Feature flag: Enable N+1 queries for demo purposes (default: false = optimized mode)
 const ENABLE_N_PLUS_ONE_QUERIES = process.env.ENABLE_N_PLUS_ONE_QUERIES === 'true';
 
+// Feature flag: Simulate random order errors for observability demos (default: false)
+const ENABLE_RANDOM_ORDER_ERRORS = process.env.ENABLE_RANDOM_ORDER_ERRORS === 'true';
+
 // Log the query mode at startup
 logger.info('Orders service query mode', {
   n_plus_one_mode: ENABLE_N_PLUS_ONE_QUERIES,
@@ -99,7 +102,7 @@ app.post('/api/orders', async (req, res) => {
   const client = await pool.connect();
   try {
     // Simulate random unhandled exception 25% of the time for observability demo
-    if (Math.random() < 0.25) {
+    if (ENABLE_RANDOM_ORDER_ERRORS && Math.random() < 0.25) {
       const error = new Error('Payment gateway timeout - unable to reach payment.giveusallyourmoney.com');
       logger.error('Order error: payment gateway timeout', {
         event: 'order_error',
