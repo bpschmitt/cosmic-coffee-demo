@@ -10,6 +10,5 @@ spec:
     requests:
       storage: 1Gi
   # Optionally bind to a specific PV by name
-  # volumeName: postgres-pv
+  volumeName: postgres-pv
   # For dynamic provisioning, use a storageClassName instead
-

@@ -39,6 +39,7 @@ A lightweight, full-stack demo application designed to showcase Observability to
   - [Frontend Not Loading](#frontend-not-loading)
   - [Orders Not Processing](#orders-not-processing)
   - [Payment Service Slowdown](#payment-service-slowdown)
+  - [Network Disturber](#network-disturber)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -475,6 +476,33 @@ This application is designed to demonstrate:
 - Check fulfillment service logs: `docker-compose logs fulfillment`
 - Check orders service logs: `docker-compose logs orders`
 - Check database for order_events table entries
+
+### Network Disturber
+
+The checkout pod includes a `network-disturber` sidecar container that uses `tc netem` to inject network faults on the checkout pod's `eth0` interface, affecting all outbound calls to cart, payment, and orders services.
+
+**Behavior when enabled:**
+
+- 20% packet loss
+- 200ms additional latency
+- Rechecks and reapplies every 5 seconds
+
+**Environment Variables:**
+
+- `CHAOS_ENABLED` - Enable/disable network fault injection (default: `"true"`)
+  - Set to `"false"` to disable chaos and restore clean networking
+
+**Kubernetes:**
+
+```bash
+# Disable chaos
+kubectl set env deployment/coffee-checkout CHAOS_ENABLED=false -n cosmic-coffee
+
+# Re-enable chaos
+kubectl set env deployment/coffee-checkout CHAOS_ENABLED=true -n cosmic-coffee
+```
+
+> **Note:** When `CHAOS_ENABLED=true`, combined with `PAYMENT_SLOWDOWN_ENABLED=true` on the payment service, checkout requests will frequently exceed the payment client's 10-second timeout and return 503 errors.
 
 ### Payment Service Slowdown
 

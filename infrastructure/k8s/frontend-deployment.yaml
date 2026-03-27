@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: frontend-config
+  name: coffee-frontend-config
   namespace: cosmic-coffee
 data:
   REACT_APP_API_URL: ""
@@ -9,27 +9,30 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontend
+  name: coffee-frontend
   namespace: cosmic-coffee
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: frontend
+      app: coffee-frontend
   template:
     metadata:
       labels:
-        app: frontend
+        app: coffee-frontend
     spec:
       containers:
-      - name: frontend
+      - name: coffee-frontend
         image: bpschmitt/cosmic-coffee-frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
+        env:
+          - name: LOCUST_HOST
+            value: "http://coffee-frontend:80"
         envFrom:
         - configMapRef:
-            name: frontend-config
+            name: coffee-frontend-config
         resources:
           requests:
             memory: "64Mi"
@@ -53,12 +56,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend
+  name: coffee-frontend
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: frontend
+    app: coffee-frontend
   ports:
   - port: 80
     targetPort: 3000

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fulfillment-config
+  name: coffee-fulfillment-config
   namespace: cosmic-coffee
 data:
   DB_HOST: "postgres"
@@ -12,7 +12,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: fulfillment-secret
+  name: coffee-fulfillment-secret
   namespace: cosmic-coffee
 type: Opaque
 stringData:
@@ -21,29 +21,29 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fulfillment
+  name: coffee-fulfillment
   namespace: cosmic-coffee
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fulfillment
+      app: coffee-fulfillment
   template:
     metadata:
       labels:
-        app: fulfillment
+        app: coffee-fulfillment
     spec:
       containers:
-      - name: fulfillment
+      - name: coffee-fulfillment
         image: bpschmitt/cosmic-coffee-fulfillment:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
         envFrom:
         - configMapRef:
-            name: fulfillment-config
+            name: coffee-fulfillment-config
         - secretRef:
-            name: fulfillment-secret
+            name: coffee-fulfillment-secret
         - secretRef:
             name: postgres-secret
         resources:
@@ -69,12 +69,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: fulfillment
+  name: coffee-fulfillment
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: fulfillment
+    app: coffee-fulfillment
   ports:
   - port: 5000
     targetPort: 5000

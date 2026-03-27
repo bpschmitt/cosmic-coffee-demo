@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: orders-config
+  name: coffee-orders-config
   namespace: cosmic-coffee
 data:
   NODE_ENV: "production"
@@ -9,14 +9,14 @@ data:
   DB_PORT: "5432"
   DB_NAME: "cosmic_coffee"
   DB_USER: "postgres"
-  PRODUCTS_SERVICE_URL: "http://products:4001"
-  FULFILLMENT_SERVICE_URL: "http://fulfillment:5000"
+  PRODUCTS_SERVICE_URL: "http://coffee-products:4001"
+  FULFILLMENT_SERVICE_URL: "http://coffee-fulfillment:5000"
   ENABLE_N_PLUS_ONE_QUERIES: "false"
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: orders-secret
+  name: coffee-orders-secret
   namespace: cosmic-coffee
 type: Opaque
 stringData:
@@ -25,29 +25,29 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: orders
+  name: coffee-orders
   namespace: cosmic-coffee
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: orders
+      app: coffee-orders
   template:
     metadata:
       labels:
-        app: orders
+        app: coffee-orders
     spec:
       containers:
-      - name: orders
+      - name: coffee-orders
         image: bpschmitt/cosmic-coffee-orders:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 4000
         envFrom:
         - configMapRef:
-            name: orders-config
+            name: coffee-orders-config
         - secretRef:
-            name: orders-secret
+            name: coffee-orders-secret
         - secretRef:
             name: postgres-secret
         resources:
@@ -73,12 +73,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: orders
+  name: coffee-orders
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: orders
+    app: coffee-orders
   ports:
   - port: 4000
     targetPort: 4000

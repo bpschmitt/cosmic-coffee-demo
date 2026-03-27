@@ -1,37 +1,37 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: checkout-config
+  name: coffee-checkout-config
   namespace: cosmic-coffee
 data:
-  CART_SERVICE_URL: "http://cart:4003"
-  PAYMENT_SERVICE_URL: "http://payment:4002"
-  ORDERS_SERVICE_URL: "http://orders:4000"
+  CART_SERVICE_URL: "http://coffee-cart:4003"
+  PAYMENT_SERVICE_URL: "http://coffee-payment:4002"
+  ORDERS_SERVICE_URL: "http://coffee-orders:4000"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: checkout
+  name: coffee-checkout
   namespace: cosmic-coffee
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: checkout
+      app: coffee-checkout
   template:
     metadata:
       labels:
-        app: checkout
+        app: coffee-checkout
     spec:
       containers:
-      - name: checkout
+      - name: coffee-checkout
         image: bpschmitt/cosmic-coffee-checkout:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 4004
         envFrom:
         - configMapRef:
-            name: checkout-config
+            name: coffee-checkout-config
         resources:
           requests:
             memory: "128Mi"
@@ -87,12 +87,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: checkout
+  name: coffee-checkout
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: checkout
+    app: coffee-checkout
   ports:
   - port: 4004
     targetPort: 4004
