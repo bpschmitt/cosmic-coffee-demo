@@ -444,32 +444,41 @@ The application includes configurable feature flags to simulate various failure 
 #### Payment Service Slowdown
 
 **Service:** Payment Service  
-Simulate periodic performance degradation to test observability alerting and anomaly detection.
+Simulate consistent performance degradation to test observability alerting and anomaly detection.
 
 **Environment Variable:**
-- `PAYMENT_SLOWDOWN_ENABLED` - Enable/disable periodic slowdown simulation (default: `false`)
+- `PAYMENT_SLOWDOWN_ENABLED` - Enable/disable slowdown (default: `false`)
   - Set to `true`, `1`, or `yes` to enable (case-insensitive)
-  - When enabled:
-    - Triggers every 15 minutes
-    - Lasts for 5 minutes each time
-    - Adds random delays of 2-5 seconds to payment processing
-    - Logs slowdown events for observability
+  - When enabled: All payment requests have a random 2-5 second delay added
+  - When disabled: Normal payment processing (no additional delay)
+  - Binary control: Always on when enabled, use kubectl patch or cronjobs to toggle
 
 **Expected Observability Signals:**
-- Payment API response time increases to 2-5 second range during slowdown windows
-- Apdex score drops during slowdown periods
-- Throughput may decrease if timeouts occur
-- "Payment slowdown" events appear in logs
+- Payment API response time increases to 2-5 second range (when enabled)
+- Apdex score drops
+- Throughput may decrease
+- "slowdown_delay_applied" events appear in logs
 - Checkout service timeout errors (503) if combined with network chaos
 
 **Usage:**
+
 ```bash
-# Docker Compose
+# Docker Compose - Enable slowdown
 PAYMENT_SLOWDOWN_ENABLED=true docker-compose up
 
-# Kubernetes
+# Kubernetes - Enable slowdown
 kubectl set env deployment/payment PAYMENT_SLOWDOWN_ENABLED=true -n cosmic-coffee
 kubectl rollout restart deployment/payment -n cosmic-coffee
+
+# Kubernetes - Disable slowdown
+kubectl set env deployment/payment PAYMENT_SLOWDOWN_ENABLED=false -n cosmic-coffee
+kubectl rollout restart deployment/payment -n cosmic-coffee
+```
+
+**With Cronjobs:**
+Use Kubernetes cronjobs to automatically toggle slowdown at specific times:
+```bash
+kubectl patch deployment payment -p '{"spec":{"template":{"spec":{"containers":[{"name":"payment","env":[{"name":"PAYMENT_SLOWDOWN_ENABLED","value":"true"}]}]}}}}' -n cosmic-coffee
 ```
 
 #### Orders Service N+1 Query Pattern

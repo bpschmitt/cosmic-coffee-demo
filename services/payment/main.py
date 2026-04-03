@@ -32,44 +32,15 @@ logger = logging.getLogger(__name__)
 # Initialize payment processor
 payment_processor = PaymentProcessor()
 
-# Check if slowdown is enabled
-slowdown_enabled = os.getenv("PAYMENT_SLOWDOWN_ENABLED", "false").lower() in ("true", "1", "yes")
-
-
-async def monitor_slowdown_cycles():
-    """Background task to periodically check and update slowdown state"""
-    while True:
-        try:
-            # Check every 30 seconds
-            await asyncio.sleep(30)
-            # Trigger state check in payment processor
-            async with payment_processor._slowdown_lock:
-                payment_processor._check_and_update_slowdown()
-        except asyncio.CancelledError:
-            logger.info("Slowdown monitoring task cancelled")
-            break
-        except Exception as e:
-            logger.error("Error in slowdown monitoring task", extra={"error": str(e)}, exc_info=True)
-
-
 @app.on_event("startup")
 async def startup_event():
     """Startup event handler"""
-    if slowdown_enabled:
-        logger.info("Payment slowdown simulation enabled", extra={
-            "event": "slowdown_feature_status",
-            "status": "enabled",
-            "interval_seconds": 900,
-            "duration_seconds": 300,
-            "delay_range_seconds": "2-5"
-        })
-        # Start background monitoring task
-        asyncio.create_task(monitor_slowdown_cycles())
-    else:
-        logger.info("Payment slowdown simulation disabled", extra={
-            "event": "slowdown_feature_status",
-            "status": "disabled"
-        })
+    slowdown_enabled = os.getenv("PAYMENT_SLOWDOWN_ENABLED", "false").lower() in ("true", "1", "yes")
+    logger.info("Payment slowdown simulation status", extra={
+        "event": "slowdown_feature_status",
+        "status": "enabled" if slowdown_enabled else "disabled",
+        "delay_range_seconds": "2-5" if slowdown_enabled else "0"
+    })
 
 
 @app.middleware("http")
