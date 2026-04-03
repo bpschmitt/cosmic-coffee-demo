@@ -44,6 +44,8 @@ const ENABLE_RANDOM_ORDER_ERRORS = process.env.ENABLE_RANDOM_ORDER_ERRORS === 't
 // Log the query mode at startup
 logger.info('Orders service query mode', {
   n_plus_one_mode: ENABLE_N_PLUS_ONE_QUERIES,
+  random_errors_enabled: ENABLE_RANDOM_ORDER_ERRORS,
+  random_errors_env_value: process.env.ENABLE_RANDOM_ORDER_ERRORS,
   mode: ENABLE_N_PLUS_ONE_QUERIES ? 'N+1 queries (demo mode)' : 'Optimized batch queries (default)'
 });
 
