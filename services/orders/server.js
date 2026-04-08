@@ -105,11 +105,13 @@ app.post('/api/orders', async (req, res) => {
   try {
     // Simulate random unhandled exception 25% of the time for observability demo
     if (ENABLE_RANDOM_ORDER_ERRORS && Math.random() < 0.25) {
-      const error = new Error('Payment gateway timeout - unable to reach payment.giveusallyourmoney.com');
-      logger.error('Order error: payment gateway timeout', {
+      const productId = req.body.items?.[0]?.product_id || 'unknown';
+      const error = new Error(`Product inventory unavailable - product_id: ${productId} is out of stock`);
+      logger.error('Order error: product inventory unavailable', {
         event: 'order_error',
-        error_type: 'payment_gateway_timeout',
+        error_type: 'inventory_unavailable',
         error_message: error.message,
+        product_id: productId,
         customer_name: req.body.customer_name
       });
       throw error;

@@ -2,15 +2,15 @@
 apiVersion: newrelic.com/v1beta2
 kind: Instrumentation
 metadata:
-  name: newrelic-nodejs-instrumentation
+  name: newrelic-dotnet-instrumentation
   namespace: newrelic
 spec:
   agent:
     # Values supported: dotnet, java, nodejs, python, ruby, php
-    language: nodejs
+    language: dotnet
 
     # Values supported: newrelic-java-init:latest, newrelic-dotnet-init:latest, newrelic-node-init:latest, newrelic-python-init:latest, newrelic-ruby-init:latest, newrelic-php-init:latest, newrelic-php-init:musl
-    image: newrelic/newrelic-node-init:latest
+    image: newrelic/newrelic-dotnet-init:latest
     env:
       - name: NEW_RELIC_APPLICATION_LOGGING_LOCAL_DECORATING_ENABLED
         value: "true"
@@ -34,4 +34,4 @@ spec:
     matchExpressions:
       - key: "app"
         operator: "In"
-        values: ["coffee-orders"]
+        values: ["coffee-cart"]

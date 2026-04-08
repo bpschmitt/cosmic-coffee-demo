@@ -26,6 +26,8 @@ spec:
           value: "http://coffee-payment:4002"
         - name: ORDERS_SERVICE_URL
           value: "http://coffee-orders:4000"
+        - name: DNS_FAILURE
+          value: "false"
         resources:
           requests:
             memory: "128Mi"
