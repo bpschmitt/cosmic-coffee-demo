@@ -34,11 +34,6 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Enabling DNS failures in checkout service..."
-              kubectl set env deployment/coffee-checkout DNS_FAILURE=true -n cosmic-coffee
-              kubectl rollout restart deployment/coffee-checkout -n cosmic-coffee
-              echo "DNS failures enabled. Will run for 15 minutes."
-
               if [ -n "$NEW_RELIC_API_KEY" ]; then
                 echo "Creating New Relic change marker..."
                 cat > /tmp/nerdgraph.json << 'EOF'
@@ -49,6 +44,11 @@ spec:
                   -H "API-Key: $NEW_RELIC_API_KEY" \
                   -d @/tmp/nerdgraph.json
               fi
+              sleep 60
+              echo "Enabling DNS failures in checkout service..."
+              kubectl set env deployment/coffee-checkout DNS_FAILURE=true -n cosmic-coffee
+              kubectl rollout restart deployment/coffee-checkout -n cosmic-coffee
+              echo "DNS failures enabled. Will run for 15 minutes."
           restartPolicy: OnFailure
 
 ---
