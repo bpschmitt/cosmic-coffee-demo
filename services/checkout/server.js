@@ -148,7 +148,7 @@ app.post('/api/checkout', async (req, res) => {
     try {
       paymentResult = await paymentClient.processPayment(
         req.body.customer_name,
-        req.body.customer_email,
+        customerEmail,
         totalAmount,
         traceHeaders
       );
@@ -204,15 +204,24 @@ app.post('/api/checkout', async (req, res) => {
       };
     });
 
+    // Ensure customer email matches customer name
+    let customerEmail = req.body.customer_email;
+    if (req.body.customer_name && (!customerEmail || !customerEmail.includes(req.body.customer_name.split(' ')[0].toLowerCase()))) {
+      const firstName = req.body.customer_name.split(' ')[0].toLowerCase();
+      const lastName = req.body.customer_name.split(' ').slice(1).join('').toLowerCase() || 'customer';
+      customerEmail = `${firstName}.${lastName}@example.com`;
+    }
+
     const orderData = {
       customer_name: req.body.customer_name,
-      customer_email: req.body.customer_email,
+      customer_email: customerEmail,
       items: orderItems
     };
 
     logger.info('Creating order', {
       event: 'order_creation_started',
       customer_name: req.body.customer_name,
+      customer_email: customerEmail,
       item_count: orderItems.length,
       order_data: orderData
     });

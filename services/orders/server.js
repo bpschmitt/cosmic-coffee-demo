@@ -118,8 +118,15 @@ app.post('/api/orders', async (req, res) => {
     }
     
     await client.query('BEGIN');
-    
-    const { customer_name, customer_email, items } = req.body;
+
+    let { customer_name, customer_email, items } = req.body;
+
+    // Ensure customer email matches customer name
+    if (customer_name && (!customer_email || !customer_email.includes(customer_name.split(' ')[0].toLowerCase()))) {
+      const firstName = customer_name.split(' ')[0].toLowerCase();
+      const lastName = customer_name.split(' ').slice(1).join('').toLowerCase() || 'customer';
+      customer_email = `${firstName}.${lastName}@example.com`;
+    }
     
     // Calculate total from items (items should already have prices from Checkout service)
     // Note: For now, we'll get prices from Products service for order_items table
