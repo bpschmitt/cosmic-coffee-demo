@@ -84,11 +84,6 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Disabling DNS failures in checkout service..."
-              kubectl set env deployment/coffee-checkout DNS_FAILURE=false -n cosmic-coffee
-              kubectl rollout restart deployment/coffee-checkout -n cosmic-coffee
-              echo "DNS failures disabled."
-
               if [ -n "$NEW_RELIC_API_KEY" ]; then
                 echo "Creating New Relic change marker..."
                 cat > /tmp/nerdgraph.json << 'EOF'
@@ -99,6 +94,11 @@ spec:
                   -H "API-Key: $NEW_RELIC_API_KEY" \
                   -d @/tmp/nerdgraph.json
               fi
+              sleep 60
+              echo "Disabling DNS failures in checkout service..."
+              kubectl set env deployment/coffee-checkout DNS_FAILURE=false -n cosmic-coffee
+              kubectl rollout restart deployment/coffee-checkout -n cosmic-coffee
+              echo "DNS failures disabled."
           restartPolicy: OnFailure
 
 ---
@@ -134,11 +134,6 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Enabling random order errors on orders service..."
-              kubectl set env deployment/coffee-orders ENABLE_RANDOM_ORDER_ERRORS=true -n cosmic-coffee
-              kubectl rollout restart deployment/coffee-orders -n cosmic-coffee
-              echo "Random order errors enabled. Will run for 15 minutes."
-
               if [ -n "$NEW_RELIC_API_KEY" ]; then
                 echo "Creating New Relic change marker..."
                 cat > /tmp/nerdgraph.json << 'EOF'
@@ -149,6 +144,11 @@ spec:
                   -H "API-Key: $NEW_RELIC_API_KEY" \
                   -d @/tmp/nerdgraph.json
               fi
+              sleep 60
+              echo "Enabling random order errors on orders service..."
+              kubectl set env deployment/coffee-orders ENABLE_RANDOM_ORDER_ERRORS=true -n cosmic-coffee
+              kubectl rollout restart deployment/coffee-orders -n cosmic-coffee
+              echo "Random order errors enabled. Will run for 15 minutes."
           restartPolicy: OnFailure
 
 ---
@@ -184,11 +184,6 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Disabling random order errors on orders service..."
-              kubectl set env deployment/coffee-orders ENABLE_RANDOM_ORDER_ERRORS=false -n cosmic-coffee
-              kubectl rollout restart deployment/coffee-orders -n cosmic-coffee
-              echo "Random order errors disabled."
-
               if [ -n "$NEW_RELIC_API_KEY" ]; then
                 echo "Creating New Relic change marker..."
                 cat > /tmp/nerdgraph.json << 'EOF'
@@ -199,6 +194,11 @@ spec:
                   -H "API-Key: $NEW_RELIC_API_KEY" \
                   -d @/tmp/nerdgraph.json
               fi
+              sleep 60
+              echo "Disabling random order errors on orders service..."
+              kubectl set env deployment/coffee-orders ENABLE_RANDOM_ORDER_ERRORS=false -n cosmic-coffee
+              kubectl rollout restart deployment/coffee-orders -n cosmic-coffee
+              echo "Random order errors disabled."
           restartPolicy: OnFailure
 
 ---
