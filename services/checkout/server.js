@@ -25,11 +25,8 @@ const app = express();
 const PORT = process.env.PORT || 4004;
 
 // Initialize service clients
-const DNS_FAILURE = process.env.DNS_FAILURE === 'true';
 const cartClient = new CartClient(process.env.CART_SERVICE_URL || 'http://cart:4003');
-const paymentClient = new PaymentClient(
-  DNS_FAILURE ? 'http://urlis.broken:4002' : (process.env.PAYMENT_SERVICE_URL || 'http://payment:4002')
-);
+const paymentClient = new PaymentClient(process.env.PAYMENT_SERVICE_URL || 'http://payment:4002');
 const ordersClient = new OrdersClient(process.env.ORDERS_SERVICE_URL || 'http://orders:4000');
 
 // Middleware
