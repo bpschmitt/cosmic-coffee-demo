@@ -22,6 +22,12 @@ spec:
         env:
         - name: REACT_APP_API_URL
           value: ""
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+        - name: nr-rendered
+          mountPath: /etc/nginx/rendered
         resources:
           requests:
             memory: "64Mi"
@@ -41,6 +47,32 @@ spec:
             port: 3000
           initialDelaySeconds: 10
           periodSeconds: 5
+      initContainers:
+      - name: render-nr-snippet
+        image: bhgedigital/envsubst:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - envsubst < /templates/nr-browser-agent.js.template > /rendered/nr-browser-agent.js
+        envFrom:
+        - secretRef:
+            name: nr-browser-agent
+        volumeMounts:
+        - name: nr-template
+          mountPath: /templates
+        - name: nr-rendered
+          mountPath: /rendered
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: frontend-nginx-config
+      - name: nr-template
+        configMap:
+          name: frontend-nginx-config
+          items:
+          - key: nr-browser-agent.js.template
+            path: nr-browser-agent.js.template
+      - name: nr-rendered
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

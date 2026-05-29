@@ -1,0 +1,12 @@
+{
+  "name": "cosmic-coffee-browser-loadgen",
+  "version": "1.0.0",
+  "description": "Browser-based load generator for Cosmic Coffee using Playwright",
+  "main": "loadgen.js",
+  "scripts": {
+    "start": "node loadgen.js"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

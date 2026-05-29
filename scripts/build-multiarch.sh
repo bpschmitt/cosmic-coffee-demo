@@ -26,7 +26,7 @@ REGISTRY="${DOCKER_REGISTRY:-bpschmitt}"
 PLATFORMS="linux/arm64,linux/amd64"
 
 # List of all available services
-ALL_SERVICES="frontend products cart payment checkout orders fulfillment loadgen"
+ALL_SERVICES="frontend products cart payment checkout orders fulfillment loadgen loadgen-browser"
 
 # Function to get service info (path:image-name:description)
 get_service_info() {
@@ -54,6 +54,9 @@ get_service_info() {
       ;;
     loadgen)
       echo "services/loadgen:cosmic-coffee-loadgen:Loadgen"
+      ;;
+    loadgen-browser)
+      echo "services/loadgen-browser:cosmic-coffee-loadgen-browser:Browser Loadgen (Playwright)"
       ;;
     *)
       echo ""

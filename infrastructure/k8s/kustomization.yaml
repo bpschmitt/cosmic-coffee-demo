@@ -9,7 +9,9 @@ namespace: cosmic-coffee
 resources:
   - namespace.yaml
   - secret-postgres.yaml
+  - secret-nr-browser.yaml
   - configmap-init-sql.yaml
+  - configmap-frontend.yaml
   - postgres-pv.yaml
   - postgres-pvc.yaml
   - postgres-deployment.yaml
@@ -21,4 +23,5 @@ resources:
   - fulfillment-deployment.yaml
   - frontend-deployment.yaml
   - loadgen-deployment.yaml
+  - loadgen-browser-deployment.yaml
 

@@ -41,3 +41,5 @@ tmp/
 temp/
 
 observability
+
+local-secret-nr-browser.yaml

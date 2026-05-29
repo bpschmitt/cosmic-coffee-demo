@@ -45,6 +45,9 @@ function getTraceHeaders(req) {
   if (req.headers.tracestate) {
     headers.tracestate = req.headers.tracestate;
   }
+  if (req.headers.newrelic) {
+    headers.newrelic = req.headers.newrelic;
+  }
   // Forward cookies for session-based services (e.g., cart service)
   if (req.headers.cookie) {
     headers.cookie = req.headers.cookie;

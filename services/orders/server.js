@@ -134,7 +134,8 @@ app.post('/api/orders', async (req, res) => {
     const productsUrl = process.env.PRODUCTS_SERVICE_URL || 'http://products:4001';
     const traceHeaders = {
       traceparent: req.headers.traceparent,
-      tracestate: req.headers.tracestate
+      tracestate: req.headers.tracestate,
+      newrelic: req.headers.newrelic,
     };
     
     let total = 0;
@@ -266,7 +267,8 @@ app.get('/api/orders', async (req, res) => {
     const productsUrl = process.env.PRODUCTS_SERVICE_URL || 'http://products:4001';
     const traceHeaders = {
       traceparent: req.headers.traceparent,
-      tracestate: req.headers.tracestate
+      tracestate: req.headers.tracestate,
+      newrelic: req.headers.newrelic,
     };
     
     let enrichedOrders;
@@ -395,7 +397,8 @@ app.get('/api/orders/search', async (req, res) => {
     const productsUrl = process.env.PRODUCTS_SERVICE_URL || 'http://products:4001';
     const traceHeaders = {
       traceparent: req.headers.traceparent,
-      tracestate: req.headers.tracestate
+      tracestate: req.headers.tracestate,
+      newrelic: req.headers.newrelic,
     };
     
     let enrichedOrders;
@@ -480,7 +483,8 @@ app.get('/api/orders/:id', async (req, res) => {
     const productsUrl = process.env.PRODUCTS_SERVICE_URL || 'http://products:4001';
     const traceHeaders = {
       traceparent: req.headers.traceparent,
-      tracestate: req.headers.tracestate
+      tracestate: req.headers.tracestate,
+      newrelic: req.headers.newrelic,
     };
     
     let enrichedItems;

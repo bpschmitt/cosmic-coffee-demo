@@ -21,13 +21,11 @@ spec:
         - containerPort: 4004
         env:
         - name: CART_SERVICE_URL
-          value: "http://coffee-cart:4003"
+          value: "http://coffee-cart.cosmic-coffee.svc.cluster.local:4003"
         - name: PAYMENT_SERVICE_URL
-          value: "http://coffee-payment:4002"
+          value: "http://coffee-payment.cosmic-coffee.svc.cluster.local:4002"
         - name: ORDERS_SERVICE_URL
-          value: "http://coffee-orders:4000"
-        - name: DNS_FAILURE
-          value: "false"
+          value: "http://coffee-orders.cosmic-coffee.svc.cluster.local:4000"
         resources:
           requests:
             memory: "128Mi"
