@@ -15,11 +15,13 @@ spec:
     spec:
       containers:
       - name: coffee-payment
-        image: bpschmitt/cosmic-coffee-payment:latest
+        image: bpschmitt/cosmic-coffee-payment:v1.0.0
         imagePullPolicy: Always
         env:
-        - name: PAYMENT_SLOWDOWN_ENABLED
-          value: "false"
+        # - name: PAYMENT_SLOWDOWN_ENABLED
+        #   value: "false"
+        # - name: PAYMENT_FAILURE_RATE
+        #   value: "0.0"
         ports:
         - containerPort: 4002
         resources:

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: coffee-locust
-        image: bpschmitt/cosmic-coffee-loadgen:latest
+        image: bpschmitt/cosmic-coffee-loadgen:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8089

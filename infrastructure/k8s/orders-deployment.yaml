@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: coffee-orders
-        image: bpschmitt/cosmic-coffee-orders:latest
+        image: bpschmitt/cosmic-coffee-orders:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 4000
@@ -36,8 +36,6 @@ spec:
           value: "http://coffee-products:4001"
         - name: FULFILLMENT_SERVICE_URL
           value: "http://coffee-fulfillment:5000"
-        - name: ENABLE_N_PLUS_ONE_QUERIES
-          value: "false"
         - name: ENABLE_RANDOM_ORDER_ERRORS
           value: "false"
         resources:

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: coffee-checkout
-        image: bpschmitt/cosmic-coffee-checkout:latest
+        image: bpschmitt/cosmic-coffee-checkout:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 4004

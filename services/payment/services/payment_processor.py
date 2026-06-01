@@ -12,8 +12,7 @@ class PaymentProcessor:
     """Simulated payment processing service"""
 
     def __init__(self):
-        # Simulate payment failures ~5% of the time for demo purposes
-        self.failure_rate = 0.05
+        self.failure_rate = float(os.getenv("PAYMENT_FAILURE_RATE", "0.0"))
 
         # Binary slowdown simulation (always on when enabled, no timing logic)
         slowdown_env = os.getenv("PAYMENT_SLOWDOWN_ENABLED", "false").lower()
