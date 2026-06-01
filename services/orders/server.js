@@ -224,89 +224,71 @@ app.post('/api/orders', async (req, res) => {
 // Get all orders (limited to last 25)
 app.get('/api/orders', async (req, res) => {
   try {
-    // Get orders and order items (without product names first)
-    const result = await pool.query(`
-      SELECT o.*, 
-             COALESCE(json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'product_id', oi.product_id,
-                 'quantity', oi.quantity,
-                 'price', oi.price
-               )
-             ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      GROUP BY o.id
-      ORDER BY o.created_at DESC
-      LIMIT 25
-    `);
-    
-    // Enrich with product names from Products service
     const productsUrl = process.env.PRODUCTS_SERVICE_URL || 'http://products:4001';
     const traceHeaders = {
       traceparent: req.headers.traceparent,
       tracestate: req.headers.tracestate,
       newrelic: req.headers.newrelic,
     };
-    
+
     let enrichedOrders;
     if (ENABLE_N_PLUS_ONE_QUERIES) {
-      // N+1 query mode: Nested loops - one request per item per order (for demo purposes)
-      enrichedOrders = await Promise.all(result.rows.map(async (order) => {
-        if (order.items && order.items.length > 0) {
-          const enrichedItems = await Promise.all(order.items.map(async (item) => {
-            try {
-              const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
-                headers: traceHeaders,
-                timeout: 2000
-              });
-              return {
-                ...item,
-                product_name: productResponse.data?.name || 'Unknown Product'
-              };
-            } catch (error) {
-              logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
-              return {
-                ...item,
-                product_name: 'Unknown Product'
-              };
-            }
-          }));
-          order.items = enrichedItems;
+      const result = await pool.query(`
+        SELECT o.*,
+               COALESCE(json_agg(
+                 json_build_object(
+                   'id', oi.id,
+                   'product_id', oi.product_id,
+                   'quantity', oi.quantity,
+                   'price', oi.price
+                 )
+               ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+        LIMIT 100
+      `);
+      enrichedOrders = [];
+      for (const order of result.rows) {
+        const enrichedItems = [];
+        for (const item of (order.items || [])) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
+              headers: traceHeaders,
+              timeout: 5000
+            });
+            enrichedItems.push({ ...item, product_name: productResponse.data?.name || 'Unknown Product' });
+          } catch (error) {
+            logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
+            enrichedItems.push({ ...item, product_name: 'Unknown Product' });
+          }
         }
-        return order;
-      }));
+        enrichedOrders.push({ ...order, items: enrichedItems });
+      }
     } else {
-      // Optimized mode: Collect all unique product IDs and fetch in one batch
-      const allProductIds = [];
-      result.rows.forEach(order => {
-        if (order.items && order.items.length > 0) {
-          order.items.forEach(item => {
-            if (item.product_id) {
-              allProductIds.push(item.product_id);
-            }
-          });
-        }
-      });
-      
-      const productMap = await fetchProductsBatch(allProductIds, productsUrl, traceHeaders);
-      
-      // Enrich all orders using the product map
-      enrichedOrders = result.rows.map(order => {
-        if (order.items && order.items.length > 0) {
-          order.items = order.items.map(item => {
-            const product = productMap[item.product_id];
-            return {
-              ...item,
-              product_name: product?.name || 'Unknown Product'
-            };
-          });
-        }
-        return order;
-      });
+      const result = await pool.query(`
+        SELECT o.*,
+               COALESCE(json_agg(
+                 json_build_object(
+                   'id', oi.id,
+                   'product_id', oi.product_id,
+                   'quantity', oi.quantity,
+                   'price', oi.price,
+                   'product_name', p.name
+                 )
+               ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN products p ON oi.product_id = p.id
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+        LIMIT 25
+      `);
+      enrichedOrders = result.rows;
     }
-    
+
     res.json(enrichedOrders);
   } catch (error) {
     logger.error('Error fetching orders', { err: error });
@@ -329,113 +311,119 @@ app.get('/api/orders/search', async (req, res) => {
     // Determine if search is by ID (numeric) or name (text)
     const isNumericSearch = !isNaN(parseInt(searchValue)) && /^\d+$/.test(searchValue.trim());
     
-    let result;
-    if (isNumericSearch) {
-      // Search by order ID
-      result = await pool.query(`
-        SELECT o.*, 
-               COALESCE(json_agg(
-                 json_build_object(
-                   'id', oi.id,
-                   'product_id', oi.product_id,
-                   'quantity', oi.quantity,
-                   'price', oi.price
-                 )
-               ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
-        FROM orders o
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        WHERE o.id = $1
-        GROUP BY o.id
-        ORDER BY o.created_at DESC
-      `, [parseInt(searchValue)]);
-    } else {
-      // Search by customer name (case-insensitive partial match)
-      result = await pool.query(`
-        SELECT o.*, 
-               COALESCE(json_agg(
-                 json_build_object(
-                   'id', oi.id,
-                   'product_id', oi.product_id,
-                   'quantity', oi.quantity,
-                   'price', oi.price
-                 )
-               ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
-        FROM orders o
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        WHERE LOWER(o.customer_name) LIKE LOWER($1)
-        GROUP BY o.id
-        ORDER BY o.created_at DESC
-      `, [`%${searchValue.trim()}%`]);
-    }
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    
-    // Enrich with product names from Products service
     const productsUrl = process.env.PRODUCTS_SERVICE_URL || 'http://products:4001';
     const traceHeaders = {
       traceparent: req.headers.traceparent,
       tracestate: req.headers.tracestate,
       newrelic: req.headers.newrelic,
     };
-    
+
     let enrichedOrders;
     if (ENABLE_N_PLUS_ONE_QUERIES) {
-      // N+1 query mode: One request per item (for demo purposes)
-      enrichedOrders = await Promise.all(result.rows.map(async (order) => {
-        if (order.items && order.items.length > 0) {
-          order.items = await Promise.all(order.items.map(async (item) => {
-            try {
-              const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
-                headers: traceHeaders,
-                timeout: 2000
-              });
-              return {
-                ...item,
-                product_name: productResponse.data?.name || 'Unknown Product'
-              };
-            } catch (error) {
-              logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
-              return {
-                ...item,
-                product_name: 'Unknown Product'
-              };
-            }
-          }));
+      let result;
+      if (isNumericSearch) {
+        result = await pool.query(`
+          SELECT o.*,
+                 COALESCE(json_agg(
+                   json_build_object(
+                     'id', oi.id,
+                     'product_id', oi.product_id,
+                     'quantity', oi.quantity,
+                     'price', oi.price
+                   )
+                 ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+          FROM orders o
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          WHERE o.id = $1
+          GROUP BY o.id
+          ORDER BY o.created_at DESC
+        `, [parseInt(searchValue)]);
+      } else {
+        result = await pool.query(`
+          SELECT o.*,
+                 COALESCE(json_agg(
+                   json_build_object(
+                     'id', oi.id,
+                     'product_id', oi.product_id,
+                     'quantity', oi.quantity,
+                     'price', oi.price
+                   )
+                 ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+          FROM orders o
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          WHERE LOWER(o.customer_name) LIKE LOWER($1)
+          GROUP BY o.id
+          ORDER BY o.created_at DESC
+        `, [`%${searchValue.trim()}%`]);
+      }
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      enrichedOrders = [];
+      for (const order of result.rows) {
+        const enrichedItems = [];
+        for (const item of (order.items || [])) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
+              headers: traceHeaders,
+              timeout: 5000
+            });
+            enrichedItems.push({ ...item, product_name: productResponse.data?.name || 'Unknown Product' });
+          } catch (error) {
+            logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
+            enrichedItems.push({ ...item, product_name: 'Unknown Product' });
+          }
         }
-        return order;
-      }));
+        enrichedOrders.push({ ...order, items: enrichedItems });
+      }
     } else {
-      // Optimized mode: Collect all unique product IDs and fetch in one batch
-      const allProductIds = [];
-      result.rows.forEach(order => {
-        if (order.items && order.items.length > 0) {
-          order.items.forEach(item => {
-            if (item.product_id) {
-              allProductIds.push(item.product_id);
-            }
-          });
-        }
-      });
-      
-      const productMap = await fetchProductsBatch(allProductIds, productsUrl, traceHeaders);
-      
-      // Enrich all orders using the product map
-      enrichedOrders = result.rows.map(order => {
-        if (order.items && order.items.length > 0) {
-          order.items = order.items.map(item => {
-            const product = productMap[item.product_id];
-            return {
-              ...item,
-              product_name: product?.name || 'Unknown Product'
-            };
-          });
-        }
-        return order;
-      });
+      let result;
+      if (isNumericSearch) {
+        result = await pool.query(`
+          SELECT o.*,
+                 COALESCE(json_agg(
+                   json_build_object(
+                     'id', oi.id,
+                     'product_id', oi.product_id,
+                     'quantity', oi.quantity,
+                     'price', oi.price,
+                     'product_name', p.name
+                   )
+                 ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+          FROM orders o
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          LEFT JOIN products p ON oi.product_id = p.id
+          WHERE o.id = $1
+          GROUP BY o.id
+          ORDER BY o.created_at DESC
+        `, [parseInt(searchValue)]);
+      } else {
+        result = await pool.query(`
+          SELECT o.*,
+                 COALESCE(json_agg(
+                   json_build_object(
+                     'id', oi.id,
+                     'product_id', oi.product_id,
+                     'quantity', oi.quantity,
+                     'price', oi.price,
+                     'product_name', p.name
+                   )
+                 ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
+          FROM orders o
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          LEFT JOIN products p ON oi.product_id = p.id
+          WHERE LOWER(o.customer_name) LIKE LOWER($1)
+          GROUP BY o.id
+          ORDER BY o.created_at DESC
+        `, [`%${searchValue.trim()}%`]);
+      }
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      enrichedOrders = result.rows;
     }
-    
+
     res.json(enrichedOrders);
   } catch (error) {
     logger.error('Error searching orders', { err: error });
