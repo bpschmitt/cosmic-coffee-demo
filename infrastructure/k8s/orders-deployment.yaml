@@ -36,8 +36,6 @@ spec:
           value: "http://coffee-products:4001"
         - name: FULFILLMENT_SERVICE_URL
           value: "http://coffee-fulfillment:5000"
-        - name: ENABLE_RANDOM_ORDER_ERRORS
-          value: "false"
         resources:
           requests:
             memory: "128Mi"

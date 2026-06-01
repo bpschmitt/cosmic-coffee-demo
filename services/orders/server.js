@@ -38,15 +38,8 @@ const pool = new Pool({
 // Feature flag: Enable N+1 queries for demo purposes (default: false = optimized mode)
 const ENABLE_N_PLUS_ONE_QUERIES = process.env.ENABLE_N_PLUS_ONE_QUERIES === 'true';
 
-// Feature flag: Simulate random order errors for observability demos (default: false)
-const ENABLE_RANDOM_ORDER_ERRORS = process.env.ENABLE_RANDOM_ORDER_ERRORS === 'true';
-
-// Log the query mode at startup
-logger.info('Orders service query mode', {
-  n_plus_one_mode: ENABLE_N_PLUS_ONE_QUERIES,
-  random_errors_enabled: ENABLE_RANDOM_ORDER_ERRORS,
-  random_errors_env_value: process.env.ENABLE_RANDOM_ORDER_ERRORS,
-  mode: ENABLE_N_PLUS_ONE_QUERIES ? 'N+1 queries (demo mode)' : 'Optimized batch queries (default)'
+logger.info('Orders service started', {
+  n_plus_one_queries: ENABLE_N_PLUS_ONE_QUERIES
 });
 
 // Helper function to fetch multiple products in parallel (optimized mode)
@@ -103,20 +96,6 @@ app.get('/health', async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   const client = await pool.connect();
   try {
-    // Simulate random unhandled exception 25% of the time for observability demo
-    if (ENABLE_RANDOM_ORDER_ERRORS && Math.random() < 0.25) {
-      const productId = req.body.items?.[0]?.product_id || 'unknown';
-      const error = new Error(`Product inventory unavailable - product_id: ${productId} is out of stock`);
-      logger.error('Order error: product inventory unavailable', {
-        event: 'order_error',
-        error_type: 'inventory_unavailable',
-        error_message: error.message,
-        product_id: productId,
-        customer_name: req.body.customer_name
-      });
-      throw error;
-    }
-    
     await client.query('BEGIN');
 
     let { customer_name, customer_email, items } = req.body;

@@ -25,20 +25,6 @@ kubectl set image deployment/coffee-orders \
 
 ---
 
-## `ENABLE_RANDOM_ORDER_ERRORS`
-
-**Service:** orders  
-**Default:** `false`
-
-Causes ~25% of order creation requests to fail with a simulated "inventory unavailable" error. Useful for error rate and alerting demos.
-
-```sh
-kubectl patch deployment coffee-orders -n cosmic-coffee --type='json' \
-  -p='[{"op":"replace","path":"/spec/template/spec/containers/0/env/1/value","value":"true"}]'
-```
-
----
-
 ## `PAYMENT_SLOWDOWN_ENABLED`
 
 **Service:** payment  
