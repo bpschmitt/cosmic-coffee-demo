@@ -7,14 +7,14 @@ These scenarios demonstrate common failure patterns observable in New Relic. Eac
 ## N+1 Query Regression
 
 **Service:** orders  
-**Versions:** `v1.0.0` (good), `v1.0.1` (bad)
+**Versions:** `v1.0.0` (good), `v1.0.3` (bad)
 
 Simulates a developer deploying a query rewrite that replaces a single optimized JOIN with individual per-order database lookups. Each request to `GET /api/orders` issues 1 query to fetch orders followed by 1 query per order to fetch its items — up to 26 sequential database queries vs 1. Response times increase noticeably under load, and distributed traces in New Relic show N sequential PostgreSQL spans instead of one.
 
 ```sh
 # Simulate bad deploy
 kubectl set image deployment/coffee-orders \
-  coffee-orders=bpschmitt/cosmic-coffee-orders:v1.0.1 \
+  coffee-orders=bpschmitt/cosmic-coffee-orders:v1.0.3 \
   -n cosmic-coffee
 
 # Roll back to good version
