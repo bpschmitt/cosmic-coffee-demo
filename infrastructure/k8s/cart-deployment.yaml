@@ -3,6 +3,13 @@ kind: Deployment
 metadata:
   name: coffee-cart
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: cart
+    app.kubernetes.io/instance: coffee-cart
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
@@ -12,6 +19,12 @@ spec:
     metadata:
       labels:
         app: coffee-cart
+        app.kubernetes.io/name: cart
+        app.kubernetes.io/instance: coffee-cart
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: service
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-cart
@@ -55,4 +68,3 @@ spec:
   - port: 4003
     targetPort: 4003
     protocol: TCP
-

@@ -3,6 +3,13 @@ kind: Deployment
 metadata:
   name: coffee-orders
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: orders
+    app.kubernetes.io/instance: coffee-orders
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
@@ -12,6 +19,12 @@ spec:
     metadata:
       labels:
         app: coffee-orders
+        app.kubernetes.io/name: orders
+        app.kubernetes.io/instance: coffee-orders
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: service
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-orders
@@ -69,4 +82,3 @@ spec:
   - port: 4000
     targetPort: 4000
     protocol: TCP
-

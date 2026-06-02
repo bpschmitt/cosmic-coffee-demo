@@ -3,6 +3,13 @@ kind: Deployment
 metadata:
   name: coffee-checkout
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: checkout
+    app.kubernetes.io/instance: coffee-checkout
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
@@ -12,6 +19,12 @@ spec:
     metadata:
       labels:
         app: coffee-checkout
+        app.kubernetes.io/name: checkout
+        app.kubernetes.io/instance: coffee-checkout
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: service
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-checkout
@@ -45,7 +58,7 @@ spec:
         args:
           - |
             echo "Network Disturber active. Chaos is currently: $CHAOS_ENABLED"
-            
+
             while true; do
               if [ "$CHAOS_ENABLED" = "true" ]; then
                 echo "$(date) - [CHAOS ACTIVE] Injecting 20% loss/200ms delay..."
@@ -54,7 +67,7 @@ spec:
                 echo "$(date) - [QUIET MODE] Ensuring network is clean..."
                 tc qdisc del dev eth0 root 2>/dev/null
               fi
-              
+
               # Sleep duration: shorter sleep here allows faster response to env changes
               sleep 5
             done
@@ -91,4 +104,3 @@ spec:
   - port: 4004
     targetPort: 4004
     protocol: TCP
-

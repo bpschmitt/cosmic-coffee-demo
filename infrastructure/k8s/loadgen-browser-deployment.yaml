@@ -3,6 +3,13 @@ kind: Deployment
 metadata:
   name: coffee-loadgen-browser
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: loadgen-browser
+    app.kubernetes.io/instance: coffee-loadgen-browser
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: loadgen
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
@@ -12,6 +19,12 @@ spec:
     metadata:
       labels:
         app: coffee-loadgen-browser
+        app.kubernetes.io/name: loadgen-browser
+        app.kubernetes.io/instance: coffee-loadgen-browser
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: loadgen
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-loadgen-browser

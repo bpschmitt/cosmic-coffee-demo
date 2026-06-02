@@ -3,6 +3,13 @@ kind: Deployment
 metadata:
   name: coffee-fulfillment
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: fulfillment
+    app.kubernetes.io/instance: coffee-fulfillment
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
@@ -12,6 +19,12 @@ spec:
     metadata:
       labels:
         app: coffee-fulfillment
+        app.kubernetes.io/name: fulfillment
+        app.kubernetes.io/instance: coffee-fulfillment
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: service
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-fulfillment
@@ -63,4 +76,3 @@ spec:
   - port: 5000
     targetPort: 5000
     protocol: TCP
-
