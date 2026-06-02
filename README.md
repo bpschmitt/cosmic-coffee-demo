@@ -62,47 +62,102 @@ The application consists of multiple microservices in a polyglot architecture:
 ### Architecture Diagram
 
 ```mermaid
-graph TB
-    User[User / Load Generator]
-    Frontend[Frontend<br/>React + Nginx<br/>Port: 3000]
-    
-    Products[Products Service<br/>Java/Spring Boot<br/>Port: 4001]
-    Cart[Cart Service<br/>.NET/ASP.NET Core<br/>Port: 4003]
-    Payment[Payment Service<br/>Python/FastAPI<br/>Port: 4002]
-    Checkout[Checkout Service<br/>Node.js/Express<br/>Port: 4004]
-    Orders[Orders Service<br/>Node.js/Express<br/>Port: 4000]
-    Fulfillment[Fulfillment Service<br/>.NET/ASP.NET Core<br/>Port: 5000]
-    
-    DB[(PostgreSQL<br/>Port: 5432<br/><br/>Tables:<br/>• products<br/>• orders<br/>• order_items<br/>• order_events)]
-    
-    User -->|HTTP| Frontend
-    Frontend -->|GET /api/products| Products
-    Frontend -->|POST /api/cart/items| Cart
-    Frontend -->|GET /api/cart| Cart
-    Frontend -->|POST /api/checkout| Checkout
-    Frontend -->|GET /api/orders| Orders
-    
+flowchart TD
+    subgraph Load["🔁 Load Generation"]
+        direction LR
+        Locust["🦗 Locust Loadgen\nHTTP · 5 users"]
+        Browser["🌐 Browser Loadgen\nPlaywright · 3 users"]
+    end
+
+    subgraph FE["🖥️ Frontend"]
+        Frontend["React + Nginx\n:80 → :3000"]
+    end
+
+    subgraph Services["⚙️ Backend Services"]
+        direction TB
+        Products["☕ Products\nNode.js · :4001"]
+        Cart["🛒 Cart\nNode.js · :4003"]
+        Checkout["💳 Checkout\nNode.js · :4004"]
+        Payment["💰 Payment\nPython/FastAPI · :4002"]
+        Orders["📋 Orders\nNode.js · :4000"]
+        Fulfillment["📦 Fulfillment\nPython · :5000"]
+    end
+
+    subgraph Data["🗄️ Data"]
+        DB[("PostgreSQL :5432\nproducts · orders\norder_items · order_events")]
+    end
+
+    subgraph Observability["📡 New Relic"]
+        direction LR
+        APM["APM"]
+        BrowserMon["Browser"]
+        Infra["Infrastructure"]
+    end
+
+    %% Load generators → Frontend
+    Locust  -->|"HTTP /api/*"| Frontend
+    Browser -->|"Playwright"| Frontend
+
+    %% Frontend → Backend (nginx proxy)
+    Frontend -->|"GET /api/products"| Products
+    Frontend -->|"/api/cart"| Cart
+    Frontend -->|"POST /api/checkout"| Checkout
+    Frontend -->|"GET /api/orders"| Orders
+
+    %% Checkout flow
+    Checkout -->|"GET /api/cart"| Cart
+    Checkout -->|"POST /api/payment"| Payment
+    Checkout -->|"POST /api/orders"| Orders
+    Checkout -.->|"DELETE /api/cart"| Cart
+
+    %% Cart → Products
     Cart -->|"GET /api/products/:id"| Products
-    
-    Checkout -->|GET /api/cart| Cart
-    Checkout -->|POST /api/payment| Payment
-    Checkout -->|POST /api/orders| Orders
-    
+
+    %% Orders enrichment + fulfillment
     Orders -->|"GET /api/products/:id"| Products
-    Orders -->|POST /api/fulfillment/process| Fulfillment
-    
-    Products -->|Read/Write| DB
-    Orders -->|Read/Write| DB
-    Fulfillment -->|Read/Write| DB
-    
-    style Frontend fill:#0ea5e9,stroke:#0369a1,stroke-width:2px,color:#ffffff
-    style Products fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#ffffff
-    style Cart fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#ffffff
-    style Payment fill:#ec4899,stroke:#db2777,stroke-width:2px,color:#ffffff
-    style Checkout fill:#10b981,stroke:#059669,stroke-width:2px,color:#ffffff
-    style Orders fill:#06b6d4,stroke:#0891b2,stroke-width:2px,color:#ffffff
-    style Fulfillment fill:#f97316,stroke:#ea580c,stroke-width:2px,color:#ffffff
-    style DB fill:#64748b,stroke:#475569,stroke-width:2px,color:#ffffff
+    Orders -.->|"POST /fulfillment/process"| Fulfillment
+
+    %% DB connections
+    Products -->|"read/write"| DB
+    Orders -->|"read/write"| DB
+    Fulfillment -->|"read/write"| DB
+
+    %% Observability
+    Services -.->|"traces · logs · metrics"| APM
+    FE       -.->|"page views · JS errors"| BrowserMon
+    Data     -.->|"slow queries · connections"| Infra
+
+    %% Styles
+    style Load        fill:#1e293b,stroke:#334155,color:#94a3b8
+    style FE          fill:#0c4a6e,stroke:#0369a1,color:#7dd3fc
+    style Services    fill:#14532d,stroke:#15803d,color:#86efac
+    style Data        fill:#3b0764,stroke:#7e22ce,color:#d8b4fe
+    style Observability fill:#431407,stroke:#c2410c,color:#fed7aa
+
+    style Locust      fill:#1e3a5f,stroke:#2563eb,color:#93c5fd
+    style Browser     fill:#1e3a5f,stroke:#2563eb,color:#93c5fd
+    style Frontend    fill:#0369a1,stroke:#0ea5e9,color:#ffffff
+    style Products    fill:#d97706,stroke:#f59e0b,color:#ffffff
+    style Cart        fill:#7c3aed,stroke:#8b5cf6,color:#ffffff
+    style Checkout    fill:#059669,stroke:#10b981,color:#ffffff
+    style Payment     fill:#db2777,stroke:#ec4899,color:#ffffff
+    style Orders      fill:#0891b2,stroke:#06b6d4,color:#ffffff
+    style Fulfillment fill:#ea580c,stroke:#f97316,color:#ffffff
+    style DB          fill:#4c1d95,stroke:#7c3aed,color:#ffffff
+    style APM         fill:#7c2d12,stroke:#ea580c,color:#fed7aa
+    style BrowserMon  fill:#7c2d12,stroke:#ea580c,color:#fed7aa
+    style Infra       fill:#7c2d12,stroke:#ea580c,color:#fed7aa
+
+    %% Link styles: solid user-facing flows, dashed async/background
+    linkStyle 0,1         stroke:#38bdf8,stroke-width:2px
+    linkStyle 2,3,4,5     stroke:#4ade80,stroke-width:2px
+    linkStyle 6,7,8       stroke:#34d399,stroke-width:2px
+    linkStyle 9           stroke:#34d399,stroke-width:1.5px,stroke-dasharray:5
+    linkStyle 10          stroke:#a78bfa,stroke-width:2px
+    linkStyle 11,12       stroke:#67e8f9,stroke-width:2px
+    linkStyle 13          stroke:#67e8f9,stroke-width:1.5px,stroke-dasharray:5
+    linkStyle 14,15,16    stroke:#c084fc,stroke-width:2px
+    linkStyle 17,18,19    stroke:#fb923c,stroke-width:1.5px,stroke-dasharray:4
 ```
 
 ### Service Communication Flow
