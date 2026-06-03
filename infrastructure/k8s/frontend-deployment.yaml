@@ -65,7 +65,7 @@ spec:
         image: bhgedigital/envsubst:latest
         command: ["/bin/sh", "-c"]
         args:
-          - envsubst < /templates/nr-browser-agent.js.template > /rendered/nr-browser-agent.js
+          - envsubst '${NR_ACCOUNT_ID} ${NR_TRUST_KEY} ${NR_APP_ID} ${NR_LICENSE_KEY}' < /templates/nr-browser-agent.js.template > /rendered/nr-browser-agent.js
         envFrom:
         - secretRef:
             name: nr-browser-agent

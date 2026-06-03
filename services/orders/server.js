@@ -1,5 +1,5 @@
 // New Relic must be required first
-require('newrelic');
+const newrelic = require('newrelic');
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -168,8 +168,6 @@ app.post('/api/orders', async (req, res) => {
         }
       }
     }
-    
-    // Create order
     const orderResult = await client.query(
       'INSERT INTO orders (customer_name, customer_email, total_amount, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [customer_name, customer_email, total, 'pending']
@@ -186,8 +184,14 @@ app.post('/api/orders', async (req, res) => {
     }
     
     await client.query('COMMIT');
-    
-    // Log order creation
+
+    newrelic.recordCustomEvent('OrderPlaced', {
+      order_id: order.id,
+      total_amount: total,
+      item_count: items.length,
+      customer_email: customer_email,
+    });
+
     logger.info('Order created', {
       event: 'order_created',
       order_id: order.id,
@@ -196,8 +200,7 @@ app.post('/api/orders', async (req, res) => {
       total_amount: total,
       item_count: items.length
     });
-    
-    // Send to fulfillment service for processing
+
     axios.post(`${process.env.FULFILLMENT_SERVICE_URL || 'http://fulfillment:5000'}/api/fulfillment/process`, {
       order_id: order.id,
       customer_name,
@@ -205,7 +208,7 @@ app.post('/api/orders', async (req, res) => {
     }, {
       headers: traceHeaders
     }).catch(err => logger.error('Failed to notify fulfillment service', { err }));
-    
+
     res.status(201).json(order);
   } catch (error) {
     await client.query('ROLLBACK');
@@ -279,12 +282,11 @@ app.get('/api/orders', async (req, res) => {
                    'product_name', p.name
                  )
                ) FILTER (WHERE oi.id IS NOT NULL), '[]') as items
-        FROM orders o
+        FROM (SELECT * FROM orders ORDER BY created_at DESC LIMIT 25) o
         LEFT JOIN order_items oi ON o.id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.id
-        GROUP BY o.id
+        GROUP BY o.id, o.created_at, o.customer_name, o.customer_email, o.total_amount, o.status, o.updated_at
         ORDER BY o.created_at DESC
-        LIMIT 25
       `);
       enrichedOrders = result.rows;
     }

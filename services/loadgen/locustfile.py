@@ -25,6 +25,7 @@ class CosmicCoffeeUser(HttpUser):
         """Called when a user starts. Fetch products to simulate browsing."""
         # Locust's HttpUser handles cookies automatically by default
         self.products = []
+        self.placed_order_ids = []
         response = self.client.get("/api/products", name="Get Products")
         if response.status_code == 200:
             self.products = response.json()
@@ -32,8 +33,8 @@ class CosmicCoffeeUser(HttpUser):
         else:
             logger.warning(f"Failed to load products: HTTP {response.status_code}")
         self.last_order_time = time.time()
-    
-    @task(1)
+
+    @task(5)
     def place_order(self):
         """Place an order: Add items to cart -> Checkout"""
         if not self.products:
@@ -91,6 +92,10 @@ class CosmicCoffeeUser(HttpUser):
                         order_total = float(response_data.get('total_amount', 0))
                         order_id = response_data.get('order_id', 'unknown')
                         logger.info(f"Checkout successful: Order #{order_id}, {cart_items_added} items for {customer_name} (${order_total:.2f})")
+                        if order_id != 'unknown':
+                            self.placed_order_ids.append(order_id)
+                            if len(self.placed_order_ids) > 20:
+                                self.placed_order_ids.pop(0)
                     else:
                         error_msg = response_data.get('error', 'Unknown error')
                         logger.warning(f"Checkout failed for {customer_name}: {error_msg}")
@@ -114,3 +119,15 @@ class CosmicCoffeeUser(HttpUser):
                 logger.error(f"Checkout failed ({response.status_code}): {customer_name} - {response.text[:100]}")
             
             self.last_order_time = time.time()
+
+    @task(1)
+    def search_order(self):
+        """Search for a previously placed order by ID."""
+        if not self.placed_order_ids:
+            return
+        order_id = random.choice(self.placed_order_ids)
+        response = self.client.get(f"/api/orders/search?query={order_id}", name="Search Order")
+        if response.status_code == 200:
+            logger.info(f"Order search successful: Order #{order_id}")
+        else:
+            logger.warning(f"Order search failed for #{order_id}: HTTP {response.status_code}")

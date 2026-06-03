@@ -76,14 +76,44 @@ async function runUserJourney(browser, userId) {
     }
 
     // 6. Submit checkout
+    let placedOrderId = null;
     const submitBtn = page.locator('button[type="submit"], button:has-text("Place Order"), button:has-text("Checkout"), button:has-text("Pay")').first();
     if (await submitBtn.count() > 0) {
-      await submitBtn.click();
+      const [checkoutResponse] = await Promise.all([
+        page.waitForResponse(res => res.url().includes('/api/checkout'), { timeout: 15000 }).catch(() => null),
+        submitBtn.click(),
+      ]);
+      if (checkoutResponse) {
+        const body = await checkoutResponse.json().catch(() => null);
+        if (body && body.order_id) placedOrderId = body.order_id;
+      }
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-      console.log(`[user-${userId}] Order placed`);
+      console.log(`[user-${userId}] Order placed${placedOrderId ? ` (#${placedOrderId})` : ''}`);
     }
 
     await sleep(THINK_TIME_MS);
+
+    // 7. Occasionally search for the order we just placed (~1 in 4 journeys)
+    if (placedOrderId && Math.random() < 0.25) {
+      const viewOrdersBtn = page.locator('button:has-text("View Orders")').first();
+      if (await viewOrdersBtn.count() > 0) {
+        await viewOrdersBtn.click();
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await sleep(THINK_TIME_MS);
+
+        const searchInput = page.locator('input[placeholder*="Search" i], input[placeholder*="Order" i]').first();
+        if (await searchInput.count() > 0) {
+          await searchInput.fill(String(placedOrderId));
+          const searchBtn = page.locator('button:has-text("Search")').first();
+          if (await searchBtn.count() > 0) {
+            await searchBtn.click();
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+            console.log(`[user-${userId}] Searched for order #${placedOrderId}`);
+          }
+        }
+        await sleep(THINK_TIME_MS);
+      }
+    }
   } catch (err) {
     console.error(`[user-${userId}] Journey error: ${err.message}`);
   } finally {
