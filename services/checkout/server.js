@@ -42,6 +42,9 @@ function getTraceHeaders(req) {
   if (req.headers.tracestate) {
     headers.tracestate = req.headers.tracestate;
   }
+  if (req.headers.newrelic) {
+    headers.newrelic = req.headers.newrelic;
+  }
   // Forward cookies for session-based services (e.g., cart service)
   if (req.headers.cookie) {
     headers.cookie = req.headers.cookie;
@@ -140,12 +143,20 @@ app.post('/api/checkout', async (req, res) => {
       cart_total: cart.total || cart.Total
     });
 
+    // Ensure customer email matches customer name
+    let customerEmail = req.body.customer_email;
+    if (req.body.customer_name && (!customerEmail || !customerEmail.includes(req.body.customer_name.split(' ')[0].toLowerCase()))) {
+      const firstName = req.body.customer_name.split(' ')[0].toLowerCase();
+      const lastName = req.body.customer_name.split(' ').slice(1).join('').toLowerCase() || 'customer';
+      customerEmail = `${firstName}.${lastName}@example.com`;
+    }
+
     // Step 3: Process payment
     let paymentResult;
     try {
       paymentResult = await paymentClient.processPayment(
         req.body.customer_name,
-        req.body.customer_email,
+        customerEmail,
         totalAmount,
         traceHeaders
       );
@@ -163,7 +174,12 @@ app.post('/api/checkout', async (req, res) => {
         });
       }
     } catch (error) {
-      logger.error('Payment processing error', { err: error });
+      logger.error('Payment processing error', {
+        error_message: error.message,
+        error_code: error.code,
+        error_status: error.status,
+        stack: error.stack
+      });
       if (error.status === 402) {
         return res.status(402).json({
           success: false,
@@ -203,13 +219,14 @@ app.post('/api/checkout', async (req, res) => {
 
     const orderData = {
       customer_name: req.body.customer_name,
-      customer_email: req.body.customer_email,
+      customer_email: customerEmail,
       items: orderItems
     };
 
     logger.info('Creating order', {
       event: 'order_creation_started',
       customer_name: req.body.customer_name,
+      customer_email: customerEmail,
       item_count: orderItems.length,
       order_data: orderData
     });

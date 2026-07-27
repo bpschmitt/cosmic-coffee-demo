@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coffee-loadgen-browser
+  namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: loadgen-browser
+    app.kubernetes.io/instance: coffee-loadgen-browser
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: loadgen
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coffee-loadgen-browser
+  template:
+    metadata:
+      labels:
+        app: coffee-loadgen-browser
+        app.kubernetes.io/name: loadgen-browser
+        app.kubernetes.io/instance: coffee-loadgen-browser
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: loadgen
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
+    spec:
+      containers:
+      - name: coffee-loadgen-browser
+        image: bpschmitt/cosmic-coffee-loadgen-browser:v1.0.0
+        imagePullPolicy: Always
+        env:
+        - name: BROWSER_HOST
+          value: "http://coffee-frontend:80"
+        - name: BROWSER_USERS
+          value: "3"
+        - name: THINK_TIME_MS
+          value: "3000"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"

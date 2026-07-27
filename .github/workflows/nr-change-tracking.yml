@@ -1,0 +1,107 @@
+name: New Relic Change Tracking
+
+on:
+  workflow_dispatch:
+  # To enable automatic triggering on demo branch pushes, uncomment below
+  # and remove workflow_dispatch above:
+  # push:
+  #   branches:
+  #     - demo
+
+jobs:
+  notify-newrelic:
+    runs-on: ubuntu-latest
+    name: Record deployment in New Relic
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: changed-services
+        run: |
+          # workflow_dispatch has no event.before — always fall back to HEAD~1
+          HEAD="${{ github.sha }}"
+          BASE="HEAD~1"
+
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD" \
+            | grep '^services/' \
+            | cut -d'/' -f2 \
+            | sort -u)
+
+          if [ -z "$CHANGED" ]; then
+            echo "No service changes detected, using all services."
+            CHANGED="checkout orders frontend payment cart products fulfillment"
+          fi
+
+          # Build NR entity search query: name LIKE 'coffee-X' OR name LIKE 'coffee-Y'
+          QUERY=""
+          for svc in $CHANGED; do
+            [ -n "$QUERY" ] && QUERY="$QUERY OR "
+            QUERY="${QUERY}name LIKE 'coffee-${svc}'"
+          done
+
+          echo "Services changed: $CHANGED"
+          echo "Entity search query: $QUERY"
+          echo "query=$QUERY" >> "$GITHUB_OUTPUT"
+
+      - name: Create New Relic change tracking event
+        env:
+          NR_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          ENTITY_SEARCH: ${{ steps.changed-services.outputs.query }}
+          COMMIT_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          # Escape values for safe JSON embedding
+          VERSION=$(echo "$COMMIT_SHA" | head -c 40)
+          DESCRIPTION="Deployed by $ACTOR from demo branch"
+
+          MUTATION=$(cat <<EOF
+          mutation {
+            changeTrackingCreateDeployment(
+              deployment: {
+                version: "$VERSION"
+                user: "$ACTOR"
+                description: "$DESCRIPTION"
+                deploymentType: BASIC
+                entitySearch: {
+                  query: "$ENTITY_SEARCH"
+                }
+              }
+            ) {
+              deploymentId
+              entityCount
+            }
+          }
+          EOF
+          )
+
+          # Compact to single line for JSON body
+          MUTATION_COMPACT=$(echo "$MUTATION" | tr -d '\n' | tr -s ' ')
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST "https://api.newrelic.com/graphql" \
+            -H "Api-Key: $NR_API_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary "$(jq -n --arg q "$MUTATION_COMPACT" '{"query": $q}')")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          echo "HTTP status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Error: NerdGraph returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          if echo "$BODY" | jq -e '.errors' > /dev/null 2>&1; then
+            echo "Error: NerdGraph returned errors"
+            exit 1
+          fi
+
+          DEPLOYMENT_ID=$(echo "$BODY" | jq -r '.data.changeTrackingCreateDeployment.deploymentId')
+          ENTITY_COUNT=$(echo "$BODY" | jq -r '.data.changeTrackingCreateDeployment.entityCount')
+          echo "Change tracking event created: deploymentId=$DEPLOYMENT_ID, entityCount=$ENTITY_COUNT"

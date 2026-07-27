@@ -1,37 +1,44 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: checkout-config
-  namespace: cosmic-coffee
-data:
-  CART_SERVICE_URL: "http://cart:4003"
-  PAYMENT_SERVICE_URL: "http://payment:4002"
-  ORDERS_SERVICE_URL: "http://orders:4000"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: checkout
+  name: coffee-checkout
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: checkout
+    app.kubernetes.io/instance: coffee-checkout
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: checkout
+      app: coffee-checkout
   template:
     metadata:
       labels:
-        app: checkout
+        app: coffee-checkout
+        app.kubernetes.io/name: checkout
+        app.kubernetes.io/instance: coffee-checkout
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: service
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
-      - name: checkout
-        image: bpschmitt/cosmic-coffee-checkout:latest
+      - name: coffee-checkout
+        image: bpschmitt/cosmic-coffee-checkout:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 4004
-        envFrom:
-        - configMapRef:
-            name: checkout-config
+        env:
+        - name: CART_SERVICE_URL
+          value: "http://coffee-cart.cosmic-coffee.svc.cluster.local:4003"
+        - name: PAYMENT_SERVICE_URL
+          value: "http://coffee-payment.cosmic-coffee.svc.cluster.local:4002"
+        - name: ORDERS_SERVICE_URL
+          value: "http://coffee-orders.cosmic-coffee.svc.cluster.local:4000"
         resources:
           requests:
             memory: "128Mi"
@@ -39,6 +46,38 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
+      - name: network-disturber
+        image: nicolaka/netshoot
+        env:
+        - name: CHAOS_ENABLED
+          value: "false" # Default to off for the start of your demo
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            echo "Network Disturber active. Chaos is currently: $CHAOS_ENABLED"
+
+            while true; do
+              if [ "$CHAOS_ENABLED" = "true" ]; then
+                echo "$(date) - [CHAOS ACTIVE] Injecting 20% loss/200ms delay..."
+                tc qdisc replace dev eth0 root netem loss 20% delay 200ms
+              else
+                echo "$(date) - [QUIET MODE] Ensuring network is clean..."
+                tc qdisc del dev eth0 root 2>/dev/null
+              fi
+
+              # Sleep duration: shorter sleep here allows faster response to env changes
+              sleep 5
+            done
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+          requests:
+            cpu: "50m"
+            memory: "32Mi"
         # livenessProbe:
         #   httpGet:
         #     path: /health
@@ -55,14 +94,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: checkout
+  name: coffee-checkout
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: checkout
+    app: coffee-checkout
   ports:
   - port: 4004
     targetPort: 4004
     protocol: TCP
-

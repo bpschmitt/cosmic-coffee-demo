@@ -52,7 +52,20 @@ ON CONFLICT DO NOTHING;
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_events_order_id ON order_events(order_id);
+
+-- Aggressive autovacuum on high-churn tables to prevent dead tuple bloat
+-- under continuous loadgen insert/update traffic
+ALTER TABLE orders SET (
+    autovacuum_vacuum_scale_factor = 0.01,
+    autovacuum_analyze_scale_factor = 0.01,
+    autovacuum_vacuum_cost_delay = 2
+);
+ALTER TABLE order_items SET (
+    autovacuum_vacuum_scale_factor = 0.01,
+    autovacuum_analyze_scale_factor = 0.01,
+    autovacuum_vacuum_cost_delay = 2
+);
 

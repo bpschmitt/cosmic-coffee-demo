@@ -9,8 +9,10 @@ A lightweight, full-stack demo application designed to showcase Observability to
   - [Service Communication Flow](#service-communication-flow)
 - [Features](#features)
 - [Prerequisites](#prerequisites)
-- [Quick Start with Docker](#quick-start-with-docker)
-- [Quick Start with Kubernetes](#quick-start-with-kubernetes)
+- [Service Ports Reference](#service-ports-reference)
+- [Quick Start](#quick-start)
+  - [Docker Compose](#docker-compose)
+  - [Kubernetes](#kubernetes)
 - [Local Development](#local-development)
   - [Products Service (Java/Spring Boot)](#products-service-javaspring-boot)
   - [Checkout Service (Node.js/Express)](#checkout-service-nodejsexpress)
@@ -28,17 +30,19 @@ A lightweight, full-stack demo application designed to showcase Observability to
   - [Fulfillment](#fulfillment)
   - [Health & Metrics](#health--metrics)
 - [Instrumentation](#instrumentation)
-  - [Payment Service Configuration](#payment-service-configuration)
-  - [Orders Service N+1 Query Configuration](#orders-service-n1-query-configuration)
   - [Service Instrumentation](#service-instrumentation)
 - [Database Schema](#database-schema)
 - [Kubernetes Deployment](#kubernetes-deployment)
 - [Observability Scenarios](#observability-scenarios)
+  - [Feature Flags for Observability Demos](#feature-flags-for-observability-demos)
+    - [Payment Service Slowdown](#payment-service-slowdown)
+    - [Orders Service N+1 Query Pattern](#orders-service-n1-query-pattern)
+    - [Network Fault Injection (Checkout Service)](#network-fault-injection-checkout-service)
+    - [Random Order Errors](#random-order-errors)
 - [Troubleshooting](#troubleshooting)
   - [Database Connection Issues](#database-connection-issues)
   - [Frontend Not Loading](#frontend-not-loading)
   - [Orders Not Processing](#orders-not-processing)
-  - [Payment Service Slowdown](#payment-service-slowdown)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -58,47 +62,102 @@ The application consists of multiple microservices in a polyglot architecture:
 ### Architecture Diagram
 
 ```mermaid
-graph TB
-    User[User / Load Generator]
-    Frontend[Frontend<br/>React + Nginx<br/>Port: 3000]
-    
-    Products[Products Service<br/>Java/Spring Boot<br/>Port: 4001]
-    Cart[Cart Service<br/>.NET/ASP.NET Core<br/>Port: 4003]
-    Payment[Payment Service<br/>Python/FastAPI<br/>Port: 4002]
-    Checkout[Checkout Service<br/>Node.js/Express<br/>Port: 4004]
-    Orders[Orders Service<br/>Node.js/Express<br/>Port: 4000]
-    Fulfillment[Fulfillment Service<br/>.NET/ASP.NET Core<br/>Port: 5000]
-    
-    DB[(PostgreSQL<br/>Port: 5432<br/><br/>Tables:<br/>• products<br/>• orders<br/>• order_items<br/>• order_events)]
-    
-    User -->|HTTP| Frontend
-    Frontend -->|GET /api/products| Products
-    Frontend -->|POST /api/cart/items| Cart
-    Frontend -->|GET /api/cart| Cart
-    Frontend -->|POST /api/checkout| Checkout
-    Frontend -->|GET /api/orders| Orders
-    
+flowchart TD
+    subgraph Load["🔁 Load Generation"]
+        direction LR
+        Locust["🦗 Locust Loadgen\nHTTP · 5 users"]
+        Browser["🌐 Browser Loadgen\nPlaywright · 3 users"]
+    end
+
+    subgraph FE["🖥️ Frontend"]
+        Frontend["React + Nginx\n:80 → :3000"]
+    end
+
+    subgraph Services["⚙️ Backend Services"]
+        direction TB
+        Products["☕ Products\nNode.js · :4001"]
+        Cart["🛒 Cart\nNode.js · :4003"]
+        Checkout["💳 Checkout\nNode.js · :4004"]
+        Payment["💰 Payment\nPython/FastAPI · :4002"]
+        Orders["📋 Orders\nNode.js · :4000"]
+        Fulfillment["📦 Fulfillment\nPython · :5000"]
+    end
+
+    subgraph Data["🗄️ Data"]
+        DB[("PostgreSQL :5432\nproducts · orders\norder_items · order_events")]
+    end
+
+    subgraph Observability["📡 New Relic"]
+        direction LR
+        APM["APM"]
+        BrowserMon["Browser"]
+        Infra["Infrastructure"]
+    end
+
+    %% Load generators → Frontend
+    Locust  -->|"HTTP /api/*"| Frontend
+    Browser -->|"Playwright"| Frontend
+
+    %% Frontend → Backend (nginx proxy)
+    Frontend -->|"GET /api/products"| Products
+    Frontend -->|"/api/cart"| Cart
+    Frontend -->|"POST /api/checkout"| Checkout
+    Frontend -->|"GET /api/orders"| Orders
+
+    %% Checkout flow
+    Checkout -->|"GET /api/cart"| Cart
+    Checkout -->|"POST /api/payment"| Payment
+    Checkout -->|"POST /api/orders"| Orders
+    Checkout -.->|"DELETE /api/cart"| Cart
+
+    %% Cart → Products
     Cart -->|"GET /api/products/:id"| Products
-    
-    Checkout -->|GET /api/cart| Cart
-    Checkout -->|POST /api/payment| Payment
-    Checkout -->|POST /api/orders| Orders
-    
+
+    %% Orders enrichment + fulfillment
     Orders -->|"GET /api/products/:id"| Products
-    Orders -->|POST /api/fulfillment/process| Fulfillment
-    
-    Products -->|Read/Write| DB
-    Orders -->|Read/Write| DB
-    Fulfillment -->|Read/Write| DB
-    
-    style Frontend fill:#0ea5e9,stroke:#0369a1,stroke-width:2px,color:#ffffff
-    style Products fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#ffffff
-    style Cart fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#ffffff
-    style Payment fill:#ec4899,stroke:#db2777,stroke-width:2px,color:#ffffff
-    style Checkout fill:#10b981,stroke:#059669,stroke-width:2px,color:#ffffff
-    style Orders fill:#06b6d4,stroke:#0891b2,stroke-width:2px,color:#ffffff
-    style Fulfillment fill:#f97316,stroke:#ea580c,stroke-width:2px,color:#ffffff
-    style DB fill:#64748b,stroke:#475569,stroke-width:2px,color:#ffffff
+    Orders -.->|"POST /fulfillment/process"| Fulfillment
+
+    %% DB connections
+    Products -->|"read/write"| DB
+    Orders -->|"read/write"| DB
+    Fulfillment -->|"read/write"| DB
+
+    %% Observability
+    Services -.->|"traces · logs · metrics"| APM
+    FE       -.->|"page views · JS errors"| BrowserMon
+    Data     -.->|"slow queries · connections"| Infra
+
+    %% Styles
+    style Load        fill:#1e293b,stroke:#334155,color:#94a3b8
+    style FE          fill:#0c4a6e,stroke:#0369a1,color:#7dd3fc
+    style Services    fill:#14532d,stroke:#15803d,color:#86efac
+    style Data        fill:#3b0764,stroke:#7e22ce,color:#d8b4fe
+    style Observability fill:#431407,stroke:#c2410c,color:#fed7aa
+
+    style Locust      fill:#1e3a5f,stroke:#2563eb,color:#93c5fd
+    style Browser     fill:#1e3a5f,stroke:#2563eb,color:#93c5fd
+    style Frontend    fill:#0369a1,stroke:#0ea5e9,color:#ffffff
+    style Products    fill:#d97706,stroke:#f59e0b,color:#ffffff
+    style Cart        fill:#7c3aed,stroke:#8b5cf6,color:#ffffff
+    style Checkout    fill:#059669,stroke:#10b981,color:#ffffff
+    style Payment     fill:#db2777,stroke:#ec4899,color:#ffffff
+    style Orders      fill:#0891b2,stroke:#06b6d4,color:#ffffff
+    style Fulfillment fill:#ea580c,stroke:#f97316,color:#ffffff
+    style DB          fill:#4c1d95,stroke:#7c3aed,color:#ffffff
+    style APM         fill:#7c2d12,stroke:#ea580c,color:#fed7aa
+    style BrowserMon  fill:#7c2d12,stroke:#ea580c,color:#fed7aa
+    style Infra       fill:#7c2d12,stroke:#ea580c,color:#fed7aa
+
+    %% Link styles: solid user-facing flows, dashed async/background
+    linkStyle 0,1         stroke:#38bdf8,stroke-width:2px
+    linkStyle 2,3,4,5     stroke:#4ade80,stroke-width:2px
+    linkStyle 6,7,8       stroke:#34d399,stroke-width:2px
+    linkStyle 9           stroke:#34d399,stroke-width:1.5px,stroke-dasharray:5
+    linkStyle 10          stroke:#a78bfa,stroke-width:2px
+    linkStyle 11,12       stroke:#67e8f9,stroke-width:2px
+    linkStyle 13          stroke:#67e8f9,stroke-width:1.5px,stroke-dasharray:5
+    linkStyle 14,15,16    stroke:#c084fc,stroke-width:2px
+    linkStyle 17,18,19    stroke:#fb923c,stroke-width:1.5px,stroke-dasharray:4
 ```
 
 ### Service Communication Flow
@@ -136,15 +195,34 @@ graph TB
 - Python 3.11+ (for local development of Python service)
 - PostgreSQL client (optional, for direct database access)
 
-## Quick Start with Docker
+## Service Ports Reference
 
-1. Clone this repository:
+All services run on localhost with the following ports:
+
+| Service | Port | Environment |
+|---------|------|-------------|
+| Frontend | 3000 | Docker / K8s |
+| Products API | 4001 | Docker / K8s |
+| Payment API | 4002 | Docker / K8s |
+| Cart API | 4003 | Docker / K8s |
+| Checkout API | 4004 | Docker / K8s |
+| Orders API | 4000 | Docker / K8s |
+| Fulfillment API | 5000 | Docker / K8s |
+| PostgreSQL | 5432 | Docker only |
+
+## Quick Start
+
+### Common Setup
+
+Clone the repository:
 ```bash
 git clone <repository-url>
 cd cosmic-coffee-demo
 ```
 
-2. Start all services:
+### Docker Compose
+
+**Start all services:**
 ```bash
 docker-compose -f infrastructure/docker/docker-compose.yml up --build
 ```
@@ -154,17 +232,11 @@ Or use the helper script:
 scripts/start.sh
 ```
 
-3. Access the application:
-   - Frontend: http://localhost:3000
-   - Products API: http://localhost:4001
-   - Payment API: http://localhost:4002
-   - Cart API: http://localhost:4003
-   - Checkout API: http://localhost:4004
-   - Orders API: http://localhost:4000
-   - Fulfillment API: http://localhost:5000
-   - PostgreSQL: localhost:5432
+**Access the application:**
+- Frontend: http://localhost:3000
+- Other services: Use ports from table above
 
-4. Stop all services:
+**Stop all services:**
 ```bash
 docker-compose -f infrastructure/docker/docker-compose.yml down
 ```
@@ -174,54 +246,56 @@ Or use the helper script:
 scripts/stop.sh
 ```
 
-## Quick Start with Kubernetes
+### Kubernetes
 
-1. **Prerequisites:**
-   - Kubernetes cluster (local with minikube/kind, or cloud-based)
-   - kubectl configured to access your cluster
-   - Docker images built and available (see [infrastructure/k8s/README.md](infrastructure/k8s/README.md) for build instructions)
+**Prerequisites:**
+- Kubernetes cluster (local with minikube/kind, or cloud-based)
+- kubectl configured to access your cluster
+- **Required:** Docker images built and available (see [infrastructure/k8s/README.md](infrastructure/k8s/README.md) for detailed build instructions)
 
-2. **Deploy all services:**
+**Deploy all services:**
 ```bash
 cd infrastructure/k8s
 kubectl apply -k .
 ```
 
-3. **Wait for pods to be ready:**
+**Wait for pods to be ready:**
 ```bash
 kubectl wait --for=condition=ready pod -l app=frontend -n cosmic-coffee --timeout=300s
 kubectl wait --for=condition=ready pod -l app=postgres -n cosmic-coffee --timeout=120s
 ```
 
-4. **Access the application:**
+**Access the application:**
 
-   Port-forward to the frontend service:
+Port-forward to the frontend service:
 ```bash
 kubectl port-forward service/frontend 3000:80 -n cosmic-coffee
 ```
 
-   Then access at: http://localhost:3000
+Then access at: http://localhost:3000
 
-   Or port-forward to individual services:
-   - Products API: `kubectl port-forward service/products 4001:4001 -n cosmic-coffee`
-   - Payment API: `kubectl port-forward service/payment 4002:4002 -n cosmic-coffee`
-   - Cart API: `kubectl port-forward service/cart 4003:4003 -n cosmic-coffee`
-   - Checkout API: `kubectl port-forward service/checkout 4004:4004 -n cosmic-coffee`
-   - Orders API: `kubectl port-forward service/orders 4000:4000 -n cosmic-coffee`
-   - Fulfillment API: `kubectl port-forward service/fulfillment 5000:5000 -n cosmic-coffee`
+Or port-forward to individual services (use ports from table above):
+```bash
+kubectl port-forward service/products 4001:4001 -n cosmic-coffee
+kubectl port-forward service/payment 4002:4002 -n cosmic-coffee
+kubectl port-forward service/cart 4003:4003 -n cosmic-coffee
+kubectl port-forward service/checkout 4004:4004 -n cosmic-coffee
+kubectl port-forward service/orders 4000:4000 -n cosmic-coffee
+kubectl port-forward service/fulfillment 5000:5000 -n cosmic-coffee
+```
 
-5. **Check service status:**
+**Check service status:**
 ```bash
 kubectl get pods -n cosmic-coffee
 kubectl get services -n cosmic-coffee
 ```
 
-6. **View logs:**
+**View logs:**
 ```bash
 kubectl logs -f deployment/frontend -n cosmic-coffee
 ```
 
-7. **Cleanup:**
+**Cleanup:**
 ```bash
 cd infrastructure/k8s
 kubectl delete -k .
@@ -230,6 +304,18 @@ kubectl delete -k .
 For detailed Kubernetes deployment instructions, build options, and troubleshooting, see [infrastructure/k8s/README.md](infrastructure/k8s/README.md).
 
 ## Local Development
+
+### Common Environment Variables
+
+Most services share the same database configuration. Create a `.env` file or export these variables:
+
+```bash
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=cosmic_coffee
+DB_USER=postgres
+DB_PASSWORD=postgres
+```
 
 ### Products Service (Java/Spring Boot)
 
@@ -244,15 +330,9 @@ mvn clean package
 java -jar target/products-service-1.0.0.jar
 ```
 
-Set environment variables:
-```
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=cosmic_coffee
-DB_USER=postgres
-DB_PASSWORD=postgres
-NEW_RELIC_LICENSE_KEY=your_license_key
-```
+**Environment Variables:**
+- Common database variables (see above)
+- `NEW_RELIC_LICENSE_KEY=your_license_key`
 
 ### Checkout Service (Node.js/Express)
 
@@ -262,7 +342,7 @@ npm install
 node server.js
 ```
 
-Set environment variables:
+**Environment Variables:**
 ```
 CART_SERVICE_URL=http://localhost:4003
 PAYMENT_SERVICE_URL=http://localhost:4002
@@ -279,10 +359,7 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 4002
 ```
 
-Set environment variables:
-```
-PAYMENT_SLOWDOWN_ENABLED=false  # Set to true to enable slowdown simulation
-```
+**Note:** Payment service is stateless and does not use the database.
 
 ### Cart Service (.NET/ASP.NET Core)
 
@@ -291,11 +368,13 @@ cd services/cart
 dotnet run
 ```
 
-Set environment variables:
+**Environment Variables:**
 ```
 ProductsServiceUrl=http://localhost:4001
 ASPNETCORE_URLS=http://0.0.0.0:4003
 ```
+
+**Note:** Uses PascalCase for configuration keys per .NET conventions.
 
 ### Orders Service (Node.js)
 
@@ -305,17 +384,12 @@ npm install
 npm run dev  # Uses nodemon for auto-reload
 ```
 
-Set environment variables (create `.env` file):
-```
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=cosmic_coffee
-DB_USER=postgres
-DB_PASSWORD=postgres
-PRODUCTS_SERVICE_URL=http://localhost:4001
-FULFILLMENT_SERVICE_URL=http://localhost:5000
-ENABLE_N_PLUS_ONE_QUERIES=false  # Set to true to enable N+1 queries for demos
-```
+**Environment Variables:**
+- Common database variables (see above)
+- `PRODUCTS_SERVICE_URL=http://localhost:4001`
+- `FULFILLMENT_SERVICE_URL=http://localhost:5000`
+
+For feature flag demos, see [Observability Scenarios](#observability-scenarios).
 
 ### Fulfillment Service (.NET/ASP.NET Core)
 
@@ -324,14 +398,8 @@ cd services/fulfillment
 dotnet run
 ```
 
-Set environment variables:
-```
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=cosmic_coffee
-DB_USER=postgres
-DB_PASSWORD=postgres
-```
+**Environment Variables:**
+- Common database variables (see above)
 
 ### Frontend
 
@@ -357,11 +425,6 @@ npm start  # Runs on http://localhost:3000
 ### Payment
 - `POST /api/payment` - Process payment (simulated)
 
-**Configuration:**
-- `PAYMENT_SLOWDOWN_ENABLED` - Enable periodic slowdown simulation (default: `false`)
-  - When enabled, adds random 2-5 second delays every 15 minutes for 5 minutes
-  - Useful for demonstrating performance issues in observability tools
-
 ### Checkout
 - `POST /api/checkout` - Complete checkout (cart → payment → order)
 
@@ -373,13 +436,6 @@ npm start  # Runs on http://localhost:3000
 - `PATCH /api/orders/:id/status` - Update order status
 - `GET /api/orders/:id/events` - Get order events
 
-**Configuration:**
-- `ENABLE_N_PLUS_ONE_QUERIES` - Enable N+1 query pattern for demo purposes (default: `false`)
-  - Default (`false`): Uses optimized batch queries - collects unique product IDs and fetches them in parallel
-  - When enabled (`true`): Uses N+1 query pattern - makes one HTTP request per product ID
-  - Useful for demonstrating N+1 query problems in observability tools
-  - Performance impact: With N+1 enabled, fetching 10 orders with 3 items each makes 30 API calls instead of 1-10 parallel calls
-
 ### Fulfillment
 - `POST /api/fulfillment/process` - Process order for fulfillment
 
@@ -389,32 +445,9 @@ npm start  # Runs on http://localhost:3000
 
 ## Instrumentation
 
-### Payment Service Configuration
-
-The Payment service includes a configurable slowdown simulation feature for observability demonstrations:
-
-**Environment Variables:**
-- `PAYMENT_SLOWDOWN_ENABLED` - Enable/disable periodic slowdown simulation
-  - Set to `true`, `1`, or `yes` to enable (case-insensitive)
-  - Default: `false` (disabled)
-  - When enabled:
-    - Triggers every 15 minutes
-    - Lasts for 5 minutes each time
-    - Adds random delays of 2-5 seconds to payment processing during slowdown periods
-    - Logs slowdown events for observability
-
-**Example usage:**
-```bash
-# Docker Compose
-PAYMENT_SLOWDOWN_ENABLED=true docker-compose up
-
-# Kubernetes - Update ConfigMap or deployment
-kubectl set env deployment/payment PAYMENT_SLOWDOWN_ENABLED=true -n cosmic-coffee
-```
-
 ### Service Instrumentation
 
-Each service can be instrumented with your chosen APM agent. The application includes instrumentation hooks and structured logging for observability tools like New Relic, Datadog, or others.
+Each service can be instrumented with your chosen APM agent. The application includes instrumentation hooks and structured logging for observability tools like New Relic.
 
 ## Database Schema
 
@@ -459,6 +492,148 @@ This application is designed to demonstrate:
 7. **Service Dependencies**: Map dependencies between services
 8. **Container/Kubernetes Infrastructure**: Container metrics, pod health, resource utilization, and Kubernetes cluster observability
 
+### Feature Flags for Observability Demos
+
+The application includes configurable feature flags to simulate various failure scenarios and performance issues for observability demonstrations:
+
+#### Payment Service Slowdown
+
+**Service:** Payment Service  
+Simulate consistent performance degradation to test observability alerting and anomaly detection.
+
+**Environment Variable:**
+- `PAYMENT_SLOWDOWN_ENABLED` - Enable/disable slowdown (default: `false`)
+  - Set to `true`, `1`, or `yes` to enable (case-insensitive)
+  - When enabled: All payment requests have a random 2-5 second delay added
+  - When disabled: Normal payment processing (no additional delay)
+  - Binary control: Always on when enabled, use kubectl patch or cronjobs to toggle
+
+**Expected Observability Signals:**
+- Payment API response time increases to 2-5 second range (when enabled)
+- Apdex score drops
+- Throughput may decrease
+- "slowdown_delay_applied" events appear in logs
+- Checkout service timeout errors (503) if combined with network chaos
+
+**Usage:**
+
+```bash
+# Docker Compose - Enable slowdown
+PAYMENT_SLOWDOWN_ENABLED=true docker-compose up
+
+# Kubernetes - Enable slowdown
+kubectl set env deployment/payment PAYMENT_SLOWDOWN_ENABLED=true -n cosmic-coffee
+kubectl rollout restart deployment/payment -n cosmic-coffee
+
+# Kubernetes - Disable slowdown
+kubectl set env deployment/payment PAYMENT_SLOWDOWN_ENABLED=false -n cosmic-coffee
+kubectl rollout restart deployment/payment -n cosmic-coffee
+```
+
+**With Cronjobs:**
+Use Kubernetes cronjobs to automatically toggle slowdown at specific times:
+```bash
+kubectl patch deployment payment -p '{"spec":{"template":{"spec":{"containers":[{"name":"payment","env":[{"name":"PAYMENT_SLOWDOWN_ENABLED","value":"true"}]}]}}}}' -n cosmic-coffee
+```
+
+#### Orders Service N+1 Query Pattern
+
+**Service:** Orders Service  
+Demonstrate query optimization issues and the impact of inefficient data fetching.
+
+**Environment Variable:**
+- `ENABLE_N_PLUS_ONE_QUERIES` - Enable/disable N+1 query pattern (default: `false`)
+  - Default (`false`): Optimized batch queries
+    - Collects all unique product IDs across orders/items
+    - Fetches all products in parallel using `Promise.all()`
+    - Optimal performance - 1 batch request regardless of order/item count
+  - When enabled (`true`): N+1 query pattern
+    - Makes one HTTP request per product ID
+    - Performance impact: For 10 orders with 3 items each, makes 30 API calls instead of 1-10 parallel calls
+    - Useful for demonstrating query optimization issues in observability tools
+
+**Expected Observability Signals:**
+- GET /api/products/:id calls increase dramatically (30x for typical order list)
+- Orders service response time increases significantly
+- Database connection pool utilization increases
+- External service call count increases
+- Network I/O increases to Products service
+- Apdex score drops for order retrieval operations
+
+**Usage:**
+```bash
+# Docker Compose - Enable N+1 queries
+ENABLE_N_PLUS_ONE_QUERIES=true docker-compose up
+
+# Kubernetes
+kubectl set env deployment/orders ENABLE_N_PLUS_ONE_QUERIES=true -n cosmic-coffee
+kubectl rollout restart deployment/orders -n cosmic-coffee
+```
+
+#### Network Fault Injection
+
+**Service:** Checkout Service (via `network-disturber` sidecar)  
+Simulate network issues to test resilience and timeout handling.
+
+**Environment Variable:**
+- `CHAOS_ENABLED` - Enable/disable network fault injection (default: `false`)
+  - Set to `"false"` to disable chaos and restore clean networking
+  - When enabled, injects on the Checkout service:
+    - 20% packet loss
+    - 200ms additional latency
+    - Affects all outbound calls to cart, payment, and orders services
+    - Rechecks and reapplies every 5 seconds
+
+**Expected Observability Signals:**
+- Checkout API response time increases due to latency injection
+- Increased error rates (timeouts, retries)
+- Checkout service shows 503 errors when dependencies timeout
+- Cart, Payment, and Orders services show timeout errors from Checkout
+- Network latency metrics spike
+- Retry counts increase
+- Distributed trace shows extended durations with retries
+
+**Usage:**
+```bash
+# Kubernetes
+# Disable chaos
+kubectl set env deployment/coffee-checkout CHAOS_ENABLED=false -n cosmic-coffee
+
+# Enable chaos
+kubectl set env deployment/coffee-checkout CHAOS_ENABLED=true -n cosmic-coffee
+```
+
+**Combined Scenario:**
+> When `CHAOS_ENABLED=true` is combined with `PAYMENT_SLOWDOWN_ENABLED=true`, checkout requests will frequently exceed the payment client's 10-second timeout, resulting in 503 errors. This demonstrates cascading failures in distributed systems.
+
+#### Random Order Errors
+
+**Service:** Orders Service  
+Simulate intermittent failures to test error handling and observability.
+
+**Environment Variable:**
+- `ENABLE_RANDOM_ORDER_ERRORS` - Enable/disable random order creation failures (default: `false`)
+  - When enabled, simulates ~25% failure rate on order creation
+  - Throws a "Payment gateway timeout" error to demonstrate error tracking
+  - Useful for testing error alerting and recovery mechanisms
+
+**Expected Observability Signals:**
+- Orders service shows 500 errors on POST /api/orders (~25% of requests)
+- Checkout service shows 503 errors when order creation fails
+- "Payment gateway timeout" errors appear in error traces
+- Error rate increases on Orders service
+- Error tracking shows simulated payment gateway errors
+- Apdex score drops due to error percentage
+- Checkout success rate decreases
+- Customer sees failed checkout attempts
+
+**Usage:**
+```bash
+# Kubernetes
+kubectl set env deployment/orders ENABLE_RANDOM_ORDER_ERRORS=true -n cosmic-coffee
+kubectl rollout restart deployment/orders -n cosmic-coffee
+```
+
 ## Troubleshooting
 
 ### Database Connection Issues
@@ -475,64 +650,6 @@ This application is designed to demonstrate:
 - Check fulfillment service logs: `docker-compose logs fulfillment`
 - Check orders service logs: `docker-compose logs orders`
 - Check database for order_events table entries
-
-### Payment Service Slowdown
-
-To enable the payment slowdown simulation feature:
-
-**Docker Compose:**
-```bash
-PAYMENT_SLOWDOWN_ENABLED=true docker-compose up
-```
-
-**Kubernetes:**
-```bash
-kubectl set env deployment/payment PAYMENT_SLOWDOWN_ENABLED=true -n cosmic-coffee
-kubectl rollout restart deployment/payment -n cosmic-coffee
-```
-
-The slowdown will start automatically after 15 minutes and repeat every 15 minutes, with each slowdown period lasting 5 minutes.
-
-### Orders Service N+1 Query Configuration
-
-The Orders service includes a configurable N+1 query feature flag for observability demonstrations:
-
-**Environment Variables:**
-- `ENABLE_N_PLUS_ONE_QUERIES` - Enable/disable N+1 query pattern
-  - Default: `false` (optimized batch queries)
-  - Set to `true` to enable N+1 queries for demo purposes
-  - When disabled (default):
-    - Collects all unique product IDs across orders/items
-    - Fetches all products in parallel using `Promise.all()`
-    - Uses a product map for efficient lookup
-    - Optimal performance - 1 batch request regardless of order/item count
-  - When enabled:
-    - Makes one HTTP request per product ID
-    - N+1 pattern: For N items, makes N separate API calls
-    - Useful for demonstrating query optimization issues in observability tools
-
-**Example usage:**
-
-**Docker Compose:**
-```bash
-# Default: Optimized queries (recommended)
-docker-compose up
-
-# Enable N+1 queries for demo
-ENABLE_N_PLUS_ONE_QUERIES=true docker-compose up
-```
-
-**Kubernetes:**
-```bash
-# Update ConfigMap or deployment
-kubectl set env deployment/orders ENABLE_N_PLUS_ONE_QUERIES=true -n cosmic-coffee
-kubectl rollout restart deployment/orders -n cosmic-coffee
-
-# To disable (default):
-kubectl set env deployment/orders ENABLE_N_PLUS_ONE_QUERIES=false -n cosmic-coffee
-```
-
-The service logs the active mode at startup for visibility.
 
 ## License
 

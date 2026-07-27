@@ -3,6 +3,13 @@ kind: Deployment
 metadata:
   name: postgres
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: postgres
+    app.kubernetes.io/version: "15"
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
@@ -12,10 +19,17 @@ spec:
     metadata:
       labels:
         app: postgres
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/instance: postgres
+        app.kubernetes.io/version: "15"
+        app.kubernetes.io/component: database
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: postgres
-        image: postgres:15-alpine
+        image: bpschmitt/cosmic-coffee-postgres:15
+        args: ["-c", "shared_preload_libraries=pg_stat_statements,pg_stat_monitor,pg_wait_sampling"]
         ports:
         - containerPort: 5432
         env:
@@ -28,6 +42,13 @@ spec:
             secretKeyRef:
               name: postgres-secret
               key: password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
         volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
@@ -52,4 +73,3 @@ spec:
   ports:
   - port: 5432
     targetPort: 5432
-

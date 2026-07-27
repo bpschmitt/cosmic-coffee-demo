@@ -1,21 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: loadgen
+  name: coffee-loadgen
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: loadgen
+    app.kubernetes.io/instance: coffee-loadgen
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: loadgen
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: loadgen
+      app: coffee-loadgen
   template:
     metadata:
       labels:
-        app: loadgen
+        app: coffee-loadgen
+        app.kubernetes.io/name: loadgen
+        app.kubernetes.io/instance: coffee-loadgen
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: loadgen
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
-      - name: locust
-        image: bpschmitt/cosmic-coffee-loadgen:latest
+      - name: coffee-locust
+        image: bpschmitt/cosmic-coffee-loadgen:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8089
@@ -26,11 +39,11 @@ spec:
           name: worker
         env:
         - name: LOCUST_HOST
-          value: "http://frontend:80"
+          value: "http://coffee-frontend:80"
         - name: LOCUST_USERS
-          value: "10"
+          value: "5"
         - name: LOCUST_SPAWN_RATE
-          value: "2"
+          value: "1"
         resources:
           requests:
             memory: "128Mi"
@@ -42,12 +55,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: loadgen
+  name: coffee-loadgen
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: loadgen
+    app: coffee-loadgen
   ports:
   - port: 8089
     targetPort: 8089

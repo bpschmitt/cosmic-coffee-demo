@@ -1,3 +1,24 @@
+using log4net;
+using log4net.Config;
+using System.Reflection;
+
+// Configure log4net
+var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
+var log4netConfigPath = Path.Combine(AppContext.BaseDirectory, "log4net.config");
+if (File.Exists(log4netConfigPath))
+{
+    XmlConfigurator.Configure(logRepository, new FileInfo(log4netConfigPath));
+}
+else
+{
+    // Fallback: try current directory
+    var fallbackPath = Path.Combine(Directory.GetCurrentDirectory(), "log4net.config");
+    if (File.Exists(fallbackPath))
+    {
+        XmlConfigurator.Configure(logRepository, new FileInfo(fallbackPath));
+    }
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container

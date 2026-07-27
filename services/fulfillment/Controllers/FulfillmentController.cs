@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using FulfillmentService.Models;
 using FulfillmentService.Services;
+using log4net;
 
 namespace FulfillmentService.Controllers;
 
@@ -10,15 +11,12 @@ namespace FulfillmentService.Controllers;
 public class FulfillmentController : ControllerBase
 {
     private readonly FulfillmentProcessor _fulfillmentProcessor;
-    private readonly ILogger<FulfillmentController> _logger;
+    private static readonly ILog _logger = LogManager.GetLogger(typeof(FulfillmentController));
     private static readonly ActivitySource ActivitySource = new("FulfillmentService.FulfillmentController");
 
-    public FulfillmentController(
-        FulfillmentProcessor fulfillmentProcessor,
-        ILogger<FulfillmentController> logger)
+    public FulfillmentController(FulfillmentProcessor fulfillmentProcessor)
     {
         _fulfillmentProcessor = fulfillmentProcessor;
-        _logger = logger;
     }
 
     [HttpPost("process")]
@@ -31,7 +29,7 @@ public class FulfillmentController : ControllerBase
         // Validate request
         if (request.OrderId <= 0)
         {
-            _logger.LogWarning("Invalid order ID received: OrderId={OrderId}", request.OrderId);
+            _logger.WarnFormat("Invalid order ID received: OrderId={0}", request.OrderId);
             return BadRequest(new
             {
                 success = false,
@@ -39,7 +37,7 @@ public class FulfillmentController : ControllerBase
             });
         }
 
-        _logger.LogInformation("Order processing started: OrderId={OrderId}, CustomerName={CustomerName}, TotalAmount={TotalAmount}",
+        _logger.InfoFormat("Order processing started: OrderId={0}, CustomerName={1}, TotalAmount={2}",
             request.OrderId, request.CustomerName, request.TotalAmount);
 
         try
@@ -48,7 +46,7 @@ public class FulfillmentController : ControllerBase
 
             if (success)
             {
-                _logger.LogInformation("Order processing completed: OrderId={OrderId}, CustomerName={CustomerName}",
+                _logger.InfoFormat("Order processing completed: OrderId={0}, CustomerName={1}",
                     request.OrderId, request.CustomerName);
 
                 return Ok(new
@@ -67,8 +65,7 @@ public class FulfillmentController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Order processing error: OrderId={OrderId}, CustomerName={CustomerName}",
-                request.OrderId, request.CustomerName);
+            _logger.Error($"Order processing error: OrderId={request.OrderId}, CustomerName={request.CustomerName}, Error={ex.Message}", ex);
 
             return StatusCode(500, new
             {

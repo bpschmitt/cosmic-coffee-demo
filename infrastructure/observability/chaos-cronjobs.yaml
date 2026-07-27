@@ -1,0 +1,239 @@
+# Cronjobs for automated chaos engineering scenarios
+# Enable/disable DNS failures and random order errors on a schedule
+
+---
+# Network Fault Injection - Enable every 4 hours for 30 minutes
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: chaos-enable-dns-failures
+  namespace: cosmic-coffee
+spec:
+  schedule: "0 0,4,8,12,16,20 * * *"  # Every 4 hours: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 0
+      template:
+        spec:
+          serviceAccountName: chaos-controller
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            env:
+            - name: NEW_RELIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-api-key
+                  key: api-key
+            - name: NEW_RELIC_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-api-key
+                  key: account-id
+            command:
+            - /bin/sh
+            - -c
+            - |
+              if [ -n "$NEW_RELIC_API_KEY" ]; then
+                echo "Creating New Relic change marker..."
+                cat > /tmp/nerdgraph.json << 'EOF'
+              {"query": "mutation { changeTrackingCreateEvent(changeTrackingEvent: {categoryAndTypeData: {categoryFields: {deployment: {version: \"demo\"}}, kind: {category: \"deployment\", type: \"basic\"}}, shortDescription: \"Update payment service URL\", description: \"Update payment service URL\", user: \"junior-dev\", entitySearch: {query: \"type = 'SERVICE' AND name = 'coffee-checkout'\"}}) { changeTrackingEvent { changeTrackingId } messages } }"}
+              EOF
+                curl -s -X POST https://api.newrelic.com/graphql \
+                  -H "Content-Type: application/json" \
+                  -H "API-Key: $NEW_RELIC_API_KEY" \
+                  -d @/tmp/nerdgraph.json
+              fi
+              sleep 60
+              echo "Enabling DNS failures in checkout service..."
+              kubectl set env deployment/coffee-checkout DNS_FAILURE=true -n cosmic-coffee
+              kubectl rollout restart deployment/coffee-checkout -n cosmic-coffee
+              echo "DNS failures enabled. Will run for 15 minutes."
+          restartPolicy: OnFailure
+
+---
+# Network Fault Injection - Disable after 30 minutes
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: chaos-disable-dns-failures
+  namespace: cosmic-coffee
+spec:
+  schedule: "15 0,4,8,12,16,20 * * *"  # 15 minutes after enable
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 0
+      template:
+        spec:
+          serviceAccountName: chaos-controller
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            env:
+            - name: NEW_RELIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-api-key
+                  key: api-key
+            - name: NEW_RELIC_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-api-key
+                  key: account-id
+            command:
+            - /bin/sh
+            - -c
+            - |
+              if [ -n "$NEW_RELIC_API_KEY" ]; then
+                echo "Creating New Relic change marker..."
+                cat > /tmp/nerdgraph.json << 'EOF'
+              {"query": "mutation { changeTrackingCreateEvent(changeTrackingEvent: {categoryAndTypeData: {categoryFields: {deployment: {version: \"demo\"}}, kind: {category: \"deployment\", type: \"basic\"}}, shortDescription: \"Rollback payment service URL update in checkout service\", description: \"Rollback payment service URL update in checkout service\", user: \"senior-dev\", entitySearch: {query: \"type = 'SERVICE' AND name = 'coffee-checkout'\"}}) { changeTrackingEvent { changeTrackingId } messages } }"}
+              EOF
+                curl -s -X POST https://api.newrelic.com/graphql \
+                  -H "Content-Type: application/json" \
+                  -H "API-Key: $NEW_RELIC_API_KEY" \
+                  -d @/tmp/nerdgraph.json
+              fi
+              sleep 60
+              echo "Disabling DNS failures in checkout service..."
+              kubectl set env deployment/coffee-checkout DNS_FAILURE=false -n cosmic-coffee
+              kubectl rollout restart deployment/coffee-checkout -n cosmic-coffee
+              echo "DNS failures disabled."
+          restartPolicy: OnFailure
+
+---
+# Random Order Errors - Enable every 2 hours for 15 minutes
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: chaos-enable-order-errors
+  namespace: cosmic-coffee
+spec:
+  schedule: "0 2,6,10,14,18,22 * * *"  # Every 4 hours offset by 2 hours: 02:00, 06:00, 10:00, 14:00, 18:00, 22:00 UTC
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 60
+      template:
+        spec:
+          serviceAccountName: chaos-controller
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            env:
+            - name: NEW_RELIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-api-key
+                  key: api-key
+            - name: NEW_RELIC_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-api-key
+                  key: account-id
+            command:
+            - /bin/sh
+            - -c
+            - |
+              if [ -n "$NEW_RELIC_API_KEY" ]; then
+                echo "Creating New Relic change marker..."
+                cat > /tmp/nerdgraph.json << 'EOF'
+              {"query": "mutation { changeTrackingCreateEvent(changeTrackingEvent: {categoryAndTypeData: {categoryFields: {deployment: {version: \"demo\"}}, kind: {category: \"deployment\", type: \"basic\"}}, shortDescription: \"Add new features to orders service.\", description: \"Add new features to orders service.\", user: \"junior-dev\", entitySearch: {query: \"type = 'SERVICE' AND name = 'coffee-orders'\"}}) { changeTrackingEvent { changeTrackingId } messages } }"}
+              EOF
+                curl -s -X POST https://api.newrelic.com/graphql \
+                  -H "Content-Type: application/json" \
+                  -H "API-Key: $NEW_RELIC_API_KEY" \
+                  -d @/tmp/nerdgraph.json
+              fi
+              sleep 60
+              echo "Enabling random order errors on orders service..."
+              kubectl set env deployment/coffee-orders ENABLE_RANDOM_ORDER_ERRORS=true -n cosmic-coffee
+              kubectl rollout restart deployment/coffee-orders -n cosmic-coffee
+              echo "Random order errors enabled. Will run for 15 minutes."
+          restartPolicy: OnFailure
+
+---
+# Random Order Errors - Disable after 15 minutes
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: chaos-disable-order-errors
+  namespace: cosmic-coffee
+spec:
+  schedule: "15 2,6,10,14,18,22 * * *"  # 15 minutes after enable
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 0
+      template:
+        spec:
+          serviceAccountName: chaos-controller
+          containers:
+          - name: kubectl
+            image: bitnami/kubectl:latest
+            env:
+            - name: NEW_RELIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-api-key
+                  key: api-key
+            - name: NEW_RELIC_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-api-key
+                  key: account-id
+            command:
+            - /bin/sh
+            - -c
+            - |
+              if [ -n "$NEW_RELIC_API_KEY" ]; then
+                echo "Creating New Relic change marker..."
+                cat > /tmp/nerdgraph.json << 'EOF'
+              {"query": "mutation { changeTrackingCreateEvent(changeTrackingEvent: {categoryAndTypeData: {categoryFields: {deployment: {version: \"demo\"}}, kind: {category: \"deployment\", type: \"basic\"}}, shortDescription: \"Rollback feature release for orders service\", description: \"Rollback feature release for orders service\", user: \"senior-dev\", entitySearch: {query: \"type = 'SERVICE' AND name = 'coffee-orders'\"}}) { changeTrackingEvent { changeTrackingId } messages } }"}
+              EOF
+                curl -s -X POST https://api.newrelic.com/graphql \
+                  -H "Content-Type: application/json" \
+                  -H "API-Key: $NEW_RELIC_API_KEY" \
+                  -d @/tmp/nerdgraph.json
+              fi
+              sleep 60
+              echo "Disabling random order errors on orders service..."
+              kubectl set env deployment/coffee-orders ENABLE_RANDOM_ORDER_ERRORS=false -n cosmic-coffee
+              kubectl rollout restart deployment/coffee-orders -n cosmic-coffee
+              echo "Random order errors disabled."
+          restartPolicy: OnFailure
+
+---
+# ServiceAccount for cronjobs to have kubectl permissions
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaos-controller
+  namespace: cosmic-coffee
+
+---
+# ClusterRole for cronjobs to manage deployments
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chaos-controller
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments/rollout"]
+  verbs: ["create"]
+
+---
+# ClusterRoleBinding for chaos-controller
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chaos-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: chaos-controller
+subjects:
+- kind: ServiceAccount
+  name: chaos-controller
+  namespace: cosmic-coffee

@@ -1,55 +1,54 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: orders-config
-  namespace: cosmic-coffee
-data:
-  NODE_ENV: "production"
-  DB_HOST: "postgres"
-  DB_PORT: "5432"
-  DB_NAME: "cosmic_coffee"
-  DB_USER: "postgres"
-  PRODUCTS_SERVICE_URL: "http://products:4001"
-  FULFILLMENT_SERVICE_URL: "http://fulfillment:5000"
-  ENABLE_N_PLUS_ONE_QUERIES: "false"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: orders-secret
-  namespace: cosmic-coffee
-type: Opaque
-stringData:
-  DB_PASSWORD: "postgres"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: orders
+  name: coffee-orders
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: orders
+    app.kubernetes.io/instance: coffee-orders
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: orders
+      app: coffee-orders
   template:
     metadata:
       labels:
-        app: orders
+        app: coffee-orders
+        app.kubernetes.io/name: orders
+        app.kubernetes.io/instance: coffee-orders
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: service
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
-      - name: orders
-        image: bpschmitt/cosmic-coffee-orders:latest
+      - name: coffee-orders
+        image: bpschmitt/cosmic-coffee-orders:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 4000
-        envFrom:
-        - configMapRef:
-            name: orders-config
-        - secretRef:
-            name: orders-secret
-        - secretRef:
-            name: postgres-secret
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "cosmic_coffee"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          value: "postgres"
+        - name: PRODUCTS_SERVICE_URL
+          value: "http://coffee-products:4001"
+        - name: FULFILLMENT_SERVICE_URL
+          value: "http://coffee-fulfillment:5000"
         resources:
           requests:
             memory: "128Mi"
@@ -73,14 +72,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: orders
+  name: coffee-orders
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: orders
+    app: coffee-orders
   ports:
   - port: 4000
     targetPort: 4000
     protocol: TCP
-

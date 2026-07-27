@@ -2,15 +2,16 @@ using System.Data;
 using Npgsql;
 using FulfillmentService.Models;
 using Microsoft.Extensions.Configuration;
+using log4net;
 
 namespace FulfillmentService.Services;
 
 public class FulfillmentProcessor
 {
     private readonly string _connectionString;
-    private readonly ILogger<FulfillmentProcessor> _logger;
+    private static readonly ILog _logger = LogManager.GetLogger(typeof(FulfillmentProcessor));
 
-    public FulfillmentProcessor(IConfiguration configuration, ILogger<FulfillmentProcessor> logger)
+    public FulfillmentProcessor(IConfiguration configuration)
     {
         var dbHost = configuration["DB_HOST"] ?? "localhost";
         var dbPort = configuration["DB_PORT"] ?? "5432";
@@ -19,7 +20,6 @@ public class FulfillmentProcessor
         var dbPassword = configuration["DB_PASSWORD"] ?? "postgres";
 
         _connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword}";
-        _logger = logger;
     }
 
     public async Task<bool> ProcessOrderAsync(ProcessOrderRequest request)
@@ -89,14 +89,14 @@ public class FulfillmentProcessor
             cmd4.Parameters.Add(eventData2);
             await cmd4.ExecuteNonQueryAsync();
 
-            _logger.LogInformation("Order processing completed: OrderId={OrderId}, CustomerName={CustomerName}",
+            _logger.InfoFormat("Order processing completed: OrderId={0}, CustomerName={1}",
                 request.OrderId, request.CustomerName);
 
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing order: OrderId={OrderId}", request.OrderId);
+            _logger.Error($"Error processing order: OrderId={request.OrderId}, Error={ex.Message}", ex);
 
             // Log error event
             try
@@ -128,7 +128,7 @@ public class FulfillmentProcessor
             }
             catch (Exception dbError)
             {
-                _logger.LogError(dbError, "Error logging error event");
+                _logger.Error($"Error logging error event: {dbError.Message}", dbError);
             }
 
             throw;

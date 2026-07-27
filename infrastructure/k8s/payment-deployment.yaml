@@ -1,25 +1,40 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment
+  name: coffee-payment
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: payment
+    app.kubernetes.io/instance: coffee-payment
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: payment
+      app: coffee-payment
   template:
     metadata:
       labels:
-        app: payment
+        app: coffee-payment
+        app.kubernetes.io/name: payment
+        app.kubernetes.io/instance: coffee-payment
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: service
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
-      - name: payment
-        image: bpschmitt/cosmic-coffee-payment:latest
+      - name: coffee-payment
+        image: bpschmitt/cosmic-coffee-payment:v1.0.0
         imagePullPolicy: Always
         env:
         - name: PAYMENT_SLOWDOWN_ENABLED
-          value: "true"
+          value: "false"
+        - name: PAYMENT_FAILURE_RATE
+          value: "0.0"
         ports:
         - containerPort: 4002
         resources:
@@ -45,14 +60,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: payment
+  name: coffee-payment
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: payment
+    app: coffee-payment
   ports:
   - port: 4002
     targetPort: 4002
     protocol: TCP
-

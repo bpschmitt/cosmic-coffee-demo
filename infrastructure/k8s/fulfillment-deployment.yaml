@@ -1,51 +1,48 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: fulfillment-config
-  namespace: cosmic-coffee
-data:
-  DB_HOST: "postgres"
-  DB_PORT: "5432"
-  DB_NAME: "cosmic_coffee"
-  DB_USER: "postgres"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: fulfillment-secret
-  namespace: cosmic-coffee
-type: Opaque
-stringData:
-  DB_PASSWORD: "postgres"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fulfillment
+  name: coffee-fulfillment
   namespace: cosmic-coffee
+  labels:
+    app.kubernetes.io/name: fulfillment
+    app.kubernetes.io/instance: coffee-fulfillment
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: cosmic-coffee
+    app.kubernetes.io/managed-by: kubectl
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fulfillment
+      app: coffee-fulfillment
   template:
     metadata:
       labels:
-        app: fulfillment
+        app: coffee-fulfillment
+        app.kubernetes.io/name: fulfillment
+        app.kubernetes.io/instance: coffee-fulfillment
+        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/component: service
+        app.kubernetes.io/part-of: cosmic-coffee
+        app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
-      - name: fulfillment
-        image: bpschmitt/cosmic-coffee-fulfillment:latest
+      - name: coffee-fulfillment
+        image: bpschmitt/cosmic-coffee-fulfillment:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
-        envFrom:
-        - configMapRef:
-            name: fulfillment-config
-        - secretRef:
-            name: fulfillment-secret
-        - secretRef:
-            name: postgres-secret
+        env:
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "cosmic_coffee"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          value: "postgres"
         resources:
           requests:
             memory: "128Mi"
@@ -69,14 +66,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: fulfillment
+  name: coffee-fulfillment
   namespace: cosmic-coffee
 spec:
   type: ClusterIP
   selector:
-    app: fulfillment
+    app: coffee-fulfillment
   ports:
   - port: 5000
     targetPort: 5000
     protocol: TCP
-
