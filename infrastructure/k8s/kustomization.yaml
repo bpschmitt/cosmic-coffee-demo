@@ -9,7 +9,9 @@ namespace: cosmic-coffee
 resources:
   - namespace.yaml
   - secret-postgres.yaml
-  - secret-nr-browser.yaml
+  # secret-nr-browser.yaml intentionally excluded: contains CHANGEME placeholders.
+  # The real nr-browser-agent secret is managed manually in-cluster with actual
+  # NR account/license/trust key values -- applying this file would overwrite it.
   - configmap-init-sql.yaml
   - configmap-frontend.yaml
   - postgres-pv.yaml

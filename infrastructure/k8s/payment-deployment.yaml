@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: payment
     app.kubernetes.io/instance: coffee-payment
-    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/version: v1.1.0
     app.kubernetes.io/component: service
     app.kubernetes.io/part-of: cosmic-coffee
     app.kubernetes.io/managed-by: kubectl
@@ -21,14 +21,14 @@ spec:
         app: coffee-payment
         app.kubernetes.io/name: payment
         app.kubernetes.io/instance: coffee-payment
-        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/version: v1.1.0
         app.kubernetes.io/component: service
         app.kubernetes.io/part-of: cosmic-coffee
         app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-payment
-        image: bpschmitt/cosmic-coffee-payment:v1.0.0
+        image: bpschmitt/cosmic-coffee-payment:v1.1.0
         imagePullPolicy: Always
         env:
         - name: PAYMENT_SLOWDOWN_ENABLED

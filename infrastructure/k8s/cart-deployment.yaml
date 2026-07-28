@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: cart
     app.kubernetes.io/instance: coffee-cart
-    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/version: v1.1.0
     app.kubernetes.io/component: service
     app.kubernetes.io/part-of: cosmic-coffee
     app.kubernetes.io/managed-by: kubectl
@@ -21,14 +21,14 @@ spec:
         app: coffee-cart
         app.kubernetes.io/name: cart
         app.kubernetes.io/instance: coffee-cart
-        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/version: v1.1.0
         app.kubernetes.io/component: service
         app.kubernetes.io/part-of: cosmic-coffee
         app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-cart
-        image: bpschmitt/cosmic-coffee-cart:v1.0.0
+        image: bpschmitt/cosmic-coffee-cart:v1.1.0
         imagePullPolicy: Always
         ports:
         - containerPort: 4003

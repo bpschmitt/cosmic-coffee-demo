@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: frontend
     app.kubernetes.io/instance: coffee-frontend
-    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/version: v1.1.0
     app.kubernetes.io/component: frontend
     app.kubernetes.io/part-of: cosmic-coffee
     app.kubernetes.io/managed-by: kubectl
@@ -21,14 +21,14 @@ spec:
         app: coffee-frontend
         app.kubernetes.io/name: frontend
         app.kubernetes.io/instance: coffee-frontend
-        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/version: v1.1.0
         app.kubernetes.io/component: frontend
         app.kubernetes.io/part-of: cosmic-coffee
         app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-frontend
-        image: bpschmitt/cosmic-coffee-frontend:v1.0.0
+        image: bpschmitt/cosmic-coffee-frontend:v1.1.0
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
