@@ -25,6 +25,12 @@ cd "$REPO_ROOT"
 REGISTRY="${DOCKER_REGISTRY:-bpschmitt}"
 PLATFORMS="linux/arm64,linux/amd64"
 
+# Optional extra build args, e.g. BUILD_ARGS="ENABLE_N_PLUS_ONE_QUERIES=true"
+BUILD_ARG_FLAGS=()
+if [ -n "${BUILD_ARGS:-}" ]; then
+  BUILD_ARG_FLAGS+=(--build-arg "$BUILD_ARGS")
+fi
+
 # List of all available services
 ALL_SERVICES="frontend products cart payment checkout orders fulfillment loadgen loadgen-browser"
 
@@ -176,6 +182,7 @@ build_service() {
     --platform ${PLATFORMS} \
     -t ${REGISTRY}/${svc_image}:${VERSION} \
     -t ${REGISTRY}/${svc_image}:latest \
+    "${BUILD_ARG_FLAGS[@]}" \
     --push \
     ${svc_path}
 }

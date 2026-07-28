@@ -1,18 +1,22 @@
+// New Relic must be required first
+const newrelic = require('newrelic');
 const express = require('express');
 const cors = require('cors');
 const winston = require('winston');
+const newrelicFormatter = require('@newrelic/winston-enricher')(winston);
 require('dotenv').config();
 
 const CartClient = require('./services/cartClient');
 const PaymentClient = require('./services/paymentClient');
 const OrdersClient = require('./services/ordersClient');
 
-// Configure Winston logger
+// Configure Winston logger with New Relic formatter
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
-    winston.format.errors({ stack: true })
+    winston.format.errors({ stack: true }),
+    newrelicFormatter()
   ),
   transports: [
     new winston.transports.Console({
