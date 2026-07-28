@@ -6,6 +6,7 @@ const { Pool } = require('pg');
 const axios = require('axios');
 const winston = require('winston');
 const newrelicFormatter = require('@newrelic/winston-enricher')(winston);
+const crypto = require('crypto');
 require('dotenv').config();
 
 // Configure Winston logger with New Relic formatter
@@ -45,12 +46,12 @@ logger.info('Orders service started', {
 // Helper function to fetch multiple products in parallel (optimized mode)
 async function fetchProductsBatch(productIds, productsUrl, traceHeaders) {
   if (!productIds || productIds.length === 0) {
-    return {};
+    return { productMap: {}, callCount: 0 };
   }
-  
+
   // Get unique product IDs
   const uniqueIds = [...new Set(productIds)];
-  
+
   // Fetch all products in parallel
   const productPromises = uniqueIds.map(async (id) => {
     try {
@@ -64,21 +65,27 @@ async function fetchProductsBatch(productIds, productsUrl, traceHeaders) {
       return { id, data: null };
     }
   });
-  
+
   const results = await Promise.all(productPromises);
-  
+
   // Build map: product_id -> product_data
   const productMap = {};
   results.forEach(({ id, data }) => {
     productMap[id] = data || { name: 'Unknown Product', price: 0 };
   });
-  
-  return productMap;
+
+  return { productMap, callCount: uniqueIds.length };
 }
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+app.use((req, res, next) => {
+  req.requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  res.setHeader('x-request-id', req.requestId);
+  next();
+});
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -119,32 +126,36 @@ app.post('/api/orders', async (req, res) => {
     
     let total = 0;
     const productPrices = {};
-    
+    const enrichmentStart = Date.now();
+    let productServiceCalls = 0;
+
     // Get product prices for order_items table (enrichment, not validation)
     if (ENABLE_N_PLUS_ONE_QUERIES) {
       // N+1 query mode: Make one request per item (for demo purposes)
       for (const item of items) {
         try {
+          productServiceCalls++;
           const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
             headers: traceHeaders,
             timeout: 5000
           });
-          
+
           if (productResponse.data && productResponse.data.price) {
             const price = parseFloat(productResponse.data.price);
             productPrices[item.product_id] = price;
             total += price * item.quantity;
           } else {
             // If product not found, use a default price (shouldn't happen in normal flow)
-            logger.warn('Product not found during order creation, using default price', { product_id: item.product_id });
+            logger.warn('Product not found during order creation, using default price', { product_id: item.product_id, request_id: req.requestId });
             const defaultPrice = 0;
             productPrices[item.product_id] = defaultPrice;
           }
         } catch (error) {
           // Log warning but don't fail order creation (products were validated in Checkout)
-          logger.warn('Error fetching product price during order creation', { 
+          logger.warn('Error fetching product price during order creation', {
             err: error,
-            product_id: item.product_id 
+            product_id: item.product_id,
+            request_id: req.requestId
           });
           const defaultPrice = 0;
           productPrices[item.product_id] = defaultPrice;
@@ -153,8 +164,9 @@ app.post('/api/orders', async (req, res) => {
     } else {
       // Optimized mode: Fetch all products in parallel batch
       const productIds = items.map(item => item.product_id);
-      const productMap = await fetchProductsBatch(productIds, productsUrl, traceHeaders);
-      
+      const { productMap, callCount } = await fetchProductsBatch(productIds, productsUrl, traceHeaders);
+      productServiceCalls = callCount;
+
       for (const item of items) {
         const product = productMap[item.product_id];
         if (product && product.price) {
@@ -162,12 +174,24 @@ app.post('/api/orders', async (req, res) => {
           productPrices[item.product_id] = price;
           total += price * item.quantity;
         } else {
-          logger.warn('Product not found during order creation, using default price', { product_id: item.product_id });
+          logger.warn('Product not found during order creation, using default price', { product_id: item.product_id, request_id: req.requestId });
           const defaultPrice = 0;
           productPrices[item.product_id] = defaultPrice;
         }
       }
     }
+
+    logger.info('Order enrichment completed', {
+      event: 'order_enrichment_completed',
+      request_id: req.requestId,
+      endpoint: 'POST /api/orders',
+      mode: ENABLE_N_PLUS_ONE_QUERIES ? 'n_plus_one' : 'batched',
+      order_count: 1,
+      item_count: items.length,
+      product_service_calls: productServiceCalls,
+      duration_ms: Date.now() - enrichmentStart
+    });
+
     const orderResult = await client.query(
       'INSERT INTO orders (customer_name, customer_email, total_amount, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [customer_name, customer_email, total, 'pending']
@@ -207,7 +231,7 @@ app.post('/api/orders', async (req, res) => {
       total_amount: total
     }, {
       headers: traceHeaders
-    }).catch(err => logger.error('Failed to notify fulfillment service', { err }));
+    }).catch(err => logger.error('Failed to notify fulfillment service', { err, request_id: req.requestId }));
 
     res.status(201).json(order);
   } catch (error) {
@@ -216,7 +240,8 @@ app.post('/api/orders', async (req, res) => {
       event: 'order_error',
       error_type: error.name || 'unknown',
       error_message: error.message,
-      stack: error.stack
+      stack: error.stack,
+      request_id: req.requestId
     });
     res.status(500).json({ error: 'Failed to create order', message: error.message });
   } finally {
@@ -235,6 +260,8 @@ app.get('/api/orders', async (req, res) => {
     };
 
     let enrichedOrders;
+    const enrichmentStart = Date.now();
+    let productServiceCalls = 0;
     if (ENABLE_N_PLUS_ONE_QUERIES) {
       const result = await pool.query(`
         SELECT o.*,
@@ -258,13 +285,14 @@ app.get('/api/orders', async (req, res) => {
         for (const item of (order.items || [])) {
           try {
             await new Promise(resolve => setTimeout(resolve, 100));
+            productServiceCalls++;
             const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
               headers: traceHeaders,
               timeout: 5000
             });
             enrichedItems.push({ ...item, product_name: productResponse.data?.name || 'Unknown Product' });
           } catch (error) {
-            logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
+            logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error, request_id: req.requestId });
             enrichedItems.push({ ...item, product_name: 'Unknown Product' });
           }
         }
@@ -291,9 +319,20 @@ app.get('/api/orders', async (req, res) => {
       enrichedOrders = result.rows;
     }
 
+    logger.info('Order enrichment completed', {
+      event: 'order_enrichment_completed',
+      request_id: req.requestId,
+      endpoint: 'GET /api/orders',
+      mode: ENABLE_N_PLUS_ONE_QUERIES ? 'n_plus_one' : 'batched',
+      order_count: enrichedOrders.length,
+      item_count: enrichedOrders.reduce((sum, o) => sum + (o.items ? o.items.length : 0), 0),
+      product_service_calls: productServiceCalls,
+      duration_ms: Date.now() - enrichmentStart
+    });
+
     res.json(enrichedOrders);
   } catch (error) {
-    logger.error('Error fetching orders', { err: error });
+    logger.error('Error fetching orders', { err: error, request_id: req.requestId });
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
@@ -321,6 +360,8 @@ app.get('/api/orders/search', async (req, res) => {
     };
 
     let enrichedOrders;
+    const enrichmentStart = Date.now();
+    let productServiceCalls = 0;
     if (ENABLE_N_PLUS_ONE_QUERIES) {
       let result;
       if (isNumericSearch) {
@@ -367,13 +408,14 @@ app.get('/api/orders/search', async (req, res) => {
         for (const item of (order.items || [])) {
           try {
             await new Promise(resolve => setTimeout(resolve, 100));
+            productServiceCalls++;
             const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
               headers: traceHeaders,
               timeout: 5000
             });
             enrichedItems.push({ ...item, product_name: productResponse.data?.name || 'Unknown Product' });
           } catch (error) {
-            logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
+            logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error, request_id: req.requestId });
             enrichedItems.push({ ...item, product_name: 'Unknown Product' });
           }
         }
@@ -426,9 +468,20 @@ app.get('/api/orders/search', async (req, res) => {
       enrichedOrders = result.rows;
     }
 
+    logger.info('Order enrichment completed', {
+      event: 'order_enrichment_completed',
+      request_id: req.requestId,
+      endpoint: 'GET /api/orders/search',
+      mode: ENABLE_N_PLUS_ONE_QUERIES ? 'n_plus_one' : 'batched',
+      order_count: enrichedOrders.length,
+      item_count: enrichedOrders.reduce((sum, o) => sum + (o.items ? o.items.length : 0), 0),
+      product_service_calls: productServiceCalls,
+      duration_ms: Date.now() - enrichmentStart
+    });
+
     res.json(enrichedOrders);
   } catch (error) {
-    logger.error('Error searching orders', { err: error });
+    logger.error('Error searching orders', { err: error, request_id: req.requestId });
     res.status(500).json({ error: 'Failed to search orders' });
   }
 });
@@ -457,10 +510,13 @@ app.get('/api/orders/:id', async (req, res) => {
     };
     
     let enrichedItems;
+    const enrichmentStart = Date.now();
+    let productServiceCalls = 0;
     if (ENABLE_N_PLUS_ONE_QUERIES) {
       // N+1 query mode: One request per item (for demo purposes)
       enrichedItems = await Promise.all(itemsResult.rows.map(async (item) => {
         try {
+          productServiceCalls++;
           const productResponse = await axios.get(`${productsUrl}/api/products/${item.product_id}`, {
             headers: traceHeaders,
             timeout: 2000
@@ -470,7 +526,7 @@ app.get('/api/orders/:id', async (req, res) => {
             product_name: productResponse.data?.name || 'Unknown Product'
           };
         } catch (error) {
-          logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error });
+          logger.warn('Failed to fetch product name', { product_id: item.product_id, err: error, request_id: req.requestId });
           return {
             ...item,
             product_name: 'Unknown Product'
@@ -480,8 +536,9 @@ app.get('/api/orders/:id', async (req, res) => {
     } else {
       // Optimized mode: Fetch all products in parallel batch
       const productIds = itemsResult.rows.map(item => item.product_id);
-      const productMap = await fetchProductsBatch(productIds, productsUrl, traceHeaders);
-      
+      const { productMap, callCount } = await fetchProductsBatch(productIds, productsUrl, traceHeaders);
+      productServiceCalls = callCount;
+
       enrichedItems = itemsResult.rows.map(item => {
         const product = productMap[item.product_id];
         return {
@@ -490,12 +547,23 @@ app.get('/api/orders/:id', async (req, res) => {
         };
       });
     }
-    
+
+    logger.info('Order enrichment completed', {
+      event: 'order_enrichment_completed',
+      request_id: req.requestId,
+      endpoint: 'GET /api/orders/:id',
+      mode: ENABLE_N_PLUS_ONE_QUERIES ? 'n_plus_one' : 'batched',
+      order_count: 1,
+      item_count: enrichedItems.length,
+      product_service_calls: productServiceCalls,
+      duration_ms: Date.now() - enrichmentStart
+    });
+
     const order = orderResult.rows[0];
     order.items = enrichedItems;
     res.json(order);
   } catch (error) {
-    logger.error('Error fetching order', { err: error });
+    logger.error('Error fetching order', { err: error, request_id: req.requestId });
     res.status(500).json({ error: 'Failed to fetch order' });
   }
 });
