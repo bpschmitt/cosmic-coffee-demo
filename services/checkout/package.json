@@ -12,7 +12,9 @@
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "winston": "^3.11.0",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "newrelic": "^14.3.4",
+    "@newrelic/winston-enricher": "^4.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

@@ -7,21 +7,34 @@ These scenarios demonstrate common failure patterns observable in New Relic. Eac
 ## N+1 Query Regression
 
 **Service:** orders  
-**Versions:** `v1.0.0` (good), `v1.0.3` (bad)
+**Versions:** `v1.1.0` (good) → `v1.1.1` (bad) → `v1.1.2` (fixed)
 
-Simulates a developer deploying a query rewrite that replaces a single optimized JOIN with individual per-order database lookups. Each request to `GET /api/orders` issues 1 query to fetch orders followed by 1 query per order to fetch its items — up to 26 sequential database queries vs 1. Response times increase noticeably under load, and distributed traces in New Relic show N sequential PostgreSQL spans instead of one.
+Simulates a developer deploying a query rewrite that replaces a single batched fetch with individual per-item HTTP calls. The `ENABLE_N_PLUS_ONE_QUERIES` flag is baked into each image at build time (via a Dockerfile `ARG`/`ENV`), so the image tag alone determines behavior — no env var override needed at deploy time. `v1.1.0` and `v1.1.2` fetch product data with one batched/joined call; `v1.1.1` instead issues one `GET /api/products/:id` call per order line item — up to 26 sequential Products-service calls vs 1. Response times increase noticeably under load, and distributed traces in New Relic show N sequential Products-service spans instead of one.
+
+All three versions include correlated logging: each request to an enrichment endpoint (`GET /api/orders`, `GET /api/orders/search`, `GET /api/orders/:id`, `POST /api/orders`) emits an `order_enrichment_completed` log line with `request_id`, `mode` (`batched`/`n_plus_one`), `product_service_calls`, and `duration_ms` — a log-based alternative to the trace waterfall for spotting the same regression, and a way to correlate the per-item failure warnings back to one originating request via `request_id`.
 
 ```sh
-# Simulate bad deploy
+# Simulate bad deploy (regression)
 kubectl set image deployment/coffee-orders \
-  coffee-orders=bpschmitt/cosmic-coffee-orders:v1.0.3 \
+  coffee-orders=bpschmitt/cosmic-coffee-orders:v1.1.1 \
   -n cosmic-coffee
 
-# Roll back to good version
+# Roll back to the pre-regression version
 kubectl set image deployment/coffee-orders \
-  coffee-orders=bpschmitt/cosmic-coffee-orders:v1.0.0 \
+  coffee-orders=bpschmitt/cosmic-coffee-orders:v1.1.0 \
+  -n cosmic-coffee
+
+# Or roll forward to the fix
+kubectl set image deployment/coffee-orders \
+  coffee-orders=bpschmitt/cosmic-coffee-orders:v1.1.2 \
   -n cosmic-coffee
 ```
+
+> **Note:** `v1.0.0`/`v1.0.3` remain available as legacy tags but their exact baked-in behavior predates this build-arg mechanism and isn't guaranteed to match this description — use the `v1.1.x` line for this scenario.
+>
+> **Cascading failure signal:** under sustained load, `v1.1.1` can also trigger 500s on `POST /api/fulfillment/process` (logged on orders as "Failed to notify fulfillment service"). Fulfillment opens one DB connection per request and holds it for ~2.5s of simulated processing time — a single fulfillment replica saturates once N+1-inflated order throughput pushes enough concurrent requests through it. This is left unfixed intentionally: it's a realistic secondary signal (one service's regression exhausting a shared downstream dependency), not a bug in the N+1 demo itself.
+>
+> **Postgres memory:** `infrastructure/k8s/postgres-deployment.yaml` runs Postgres at 512Mi request / 1Gi limit — enough headroom for `v1.1.1`'s connection pressure (from orders, fulfillment, and products sharing one Postgres pod with no connection pooler in front) to run without OOMKilling the database. If you want to demonstrate a more severe cascading failure — the shared datastore itself going down, taking out every service at once — patch the limit back down (`kubectl patch deployment postgres -n cosmic-coffee --type='strategic' -p='{"spec":{"template":{"spec":{"containers":[{"name":"postgres","resources":{"requests":{"memory":"256Mi"},"limits":{"memory":"512Mi"}}}]}}}}'`) before running `v1.1.1` under load; restore the higher limit afterward the same way.
 
 ---
 

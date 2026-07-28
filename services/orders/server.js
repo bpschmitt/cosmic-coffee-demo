@@ -34,6 +34,13 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'cosmic_coffee',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
+  max: 10,
+});
+
+// Without this, an idle client error (e.g. connection dropped under pool
+// exhaustion) is an unhandled 'error' event and crashes the process.
+pool.on('error', (err) => {
+  logger.error('Unexpected error on idle database client', { err });
 });
 
 // Feature flag: Enable N+1 queries for demo purposes (default: false = optimized mode)

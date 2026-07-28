@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: checkout
     app.kubernetes.io/instance: coffee-checkout
-    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/version: v1.0.1
     app.kubernetes.io/component: service
     app.kubernetes.io/part-of: cosmic-coffee
     app.kubernetes.io/managed-by: kubectl
@@ -21,14 +21,14 @@ spec:
         app: coffee-checkout
         app.kubernetes.io/name: checkout
         app.kubernetes.io/instance: coffee-checkout
-        app.kubernetes.io/version: v1.0.0
+        app.kubernetes.io/version: v1.0.1
         app.kubernetes.io/component: service
         app.kubernetes.io/part-of: cosmic-coffee
         app.kubernetes.io/managed-by: kubectl
     spec:
       containers:
       - name: coffee-checkout
-        image: bpschmitt/cosmic-coffee-checkout:v1.0.0
+        image: bpschmitt/cosmic-coffee-checkout:v1.0.1
         imagePullPolicy: Always
         ports:
         - containerPort: 4004
