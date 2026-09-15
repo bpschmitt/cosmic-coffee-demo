@@ -154,10 +154,10 @@ flowchart TD
     linkStyle 6,7,8       stroke:#34d399,stroke-width:2px
     linkStyle 9           stroke:#34d399,stroke-width:1.5px,stroke-dasharray:5
     linkStyle 10          stroke:#a78bfa,stroke-width:2px
-    linkStyle 11,12       stroke:#67e8f9,stroke-width:2px
-    linkStyle 13          stroke:#67e8f9,stroke-width:1.5px,stroke-dasharray:5
-    linkStyle 14,15,16    stroke:#c084fc,stroke-width:2px
-    linkStyle 17,18,19    stroke:#fb923c,stroke-width:1.5px,stroke-dasharray:4
+    linkStyle 11          stroke:#67e8f9,stroke-width:2px
+    linkStyle 12          stroke:#67e8f9,stroke-width:1.5px,stroke-dasharray:5
+    linkStyle 13,14,15    stroke:#c084fc,stroke-width:2px
+    linkStyle 16,17,18    stroke:#fb923c,stroke-width:1.5px,stroke-dasharray:4
 ```
 
 ### Service Communication Flow
