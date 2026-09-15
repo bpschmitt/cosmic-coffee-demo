@@ -1,21 +1,16 @@
-// New Relic must be required first
-const newrelic = require('newrelic');
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const axios = require('axios');
 const winston = require('winston');
-const newrelicFormatter = require('@newrelic/winston-enricher')(winston);
 const crypto = require('crypto');
 require('dotenv').config();
 
-// Configure Winston logger with New Relic formatter
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    newrelicFormatter()
+    winston.format.errors({ stack: true })
   ),
   transports: [
     new winston.transports.Console({
@@ -128,7 +123,6 @@ app.post('/api/orders', async (req, res) => {
     const traceHeaders = {
       traceparent: req.headers.traceparent,
       tracestate: req.headers.tracestate,
-      newrelic: req.headers.newrelic,
     };
     
     let total = 0;
@@ -216,13 +210,6 @@ app.post('/api/orders', async (req, res) => {
     
     await client.query('COMMIT');
 
-    newrelic.recordCustomEvent('OrderPlaced', {
-      order_id: order.id,
-      total_amount: total,
-      item_count: items.length,
-      customer_email: customer_email,
-    });
-
     logger.info('Order created', {
       event: 'order_created',
       order_id: order.id,
@@ -263,7 +250,6 @@ app.get('/api/orders', async (req, res) => {
     const traceHeaders = {
       traceparent: req.headers.traceparent,
       tracestate: req.headers.tracestate,
-      newrelic: req.headers.newrelic,
     };
 
     let enrichedOrders;
@@ -363,7 +349,6 @@ app.get('/api/orders/search', async (req, res) => {
     const traceHeaders = {
       traceparent: req.headers.traceparent,
       tracestate: req.headers.tracestate,
-      newrelic: req.headers.newrelic,
     };
 
     let enrichedOrders;
@@ -513,7 +498,6 @@ app.get('/api/orders/:id', async (req, res) => {
     const traceHeaders = {
       traceparent: req.headers.traceparent,
       tracestate: req.headers.tracestate,
-      newrelic: req.headers.newrelic,
     };
     
     let enrichedItems;

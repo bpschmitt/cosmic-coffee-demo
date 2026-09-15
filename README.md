@@ -87,13 +87,6 @@ flowchart TD
         DB[("PostgreSQL :5432<br/>products · orders<br/>order_items · order_events")]
     end
 
-    subgraph Observability["📡 New Relic"]
-        direction LR
-        APM["APM"]
-        BrowserMon["Browser"]
-        Infra["Infrastructure"]
-    end
-
     %% Load generators → Frontend
     Locust  -->|"HTTP /api/*"| Frontend
     Browser -->|"Playwright"| Frontend
@@ -122,17 +115,11 @@ flowchart TD
     Orders -->|"read/write"| DB
     Fulfillment -->|"read/write"| DB
 
-    %% Observability
-    Services -.->|"traces · logs · metrics"| APM
-    FE       -.->|"page views · JS errors"| BrowserMon
-    Data     -.->|"slow queries · connections"| Infra
-
     %% Styles
     style Load        fill:#1e293b,stroke:#334155,color:#94a3b8
     style FE          fill:#0c4a6e,stroke:#0369a1,color:#7dd3fc
     style Services    fill:#14532d,stroke:#15803d,color:#86efac
     style Data        fill:#3b0764,stroke:#7e22ce,color:#d8b4fe
-    style Observability fill:#431407,stroke:#c2410c,color:#fed7aa
 
     style Locust      fill:#1e3a5f,stroke:#2563eb,color:#93c5fd
     style Browser     fill:#1e3a5f,stroke:#2563eb,color:#93c5fd
@@ -144,9 +131,6 @@ flowchart TD
     style Orders      fill:#0891b2,stroke:#06b6d4,color:#ffffff
     style Fulfillment fill:#ea580c,stroke:#f97316,color:#ffffff
     style DB          fill:#4c1d95,stroke:#7c3aed,color:#ffffff
-    style APM         fill:#7c2d12,stroke:#ea580c,color:#fed7aa
-    style BrowserMon  fill:#7c2d12,stroke:#ea580c,color:#fed7aa
-    style Infra       fill:#7c2d12,stroke:#ea580c,color:#fed7aa
 
     %% Link styles: solid user-facing flows, dashed async/background
     linkStyle 0,1         stroke:#38bdf8,stroke-width:2px
@@ -157,7 +141,6 @@ flowchart TD
     linkStyle 11          stroke:#67e8f9,stroke-width:2px
     linkStyle 12          stroke:#67e8f9,stroke-width:1.5px,stroke-dasharray:5
     linkStyle 13,14,15    stroke:#c084fc,stroke-width:2px
-    linkStyle 16,17,18    stroke:#fb923c,stroke-width:1.5px,stroke-dasharray:4
 ```
 
 ### Service Communication Flow
