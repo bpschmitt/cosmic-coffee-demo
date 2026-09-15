@@ -65,26 +65,26 @@ The application consists of multiple microservices in a polyglot architecture:
 flowchart TD
     subgraph Load["🔁 Load Generation"]
         direction LR
-        Locust["🦗 Locust Loadgen\nHTTP · 5 users"]
-        Browser["🌐 Browser Loadgen\nPlaywright · 3 users"]
+        Locust["🦗 Locust Loadgen<br/>HTTP · 5 users"]
+        Browser["🌐 Browser Loadgen<br/>Playwright · 3 users"]
     end
 
     subgraph FE["🖥️ Frontend"]
-        Frontend["React + Nginx\n:80 → :3000"]
+        Frontend["React + Nginx<br/>:80 → :3000"]
     end
 
     subgraph Services["⚙️ Backend Services"]
         direction TB
-        Products["☕ Products\nNode.js · :4001"]
-        Cart["🛒 Cart\nNode.js · :4003"]
-        Checkout["💳 Checkout\nNode.js · :4004"]
-        Payment["💰 Payment\nPython/FastAPI · :4002"]
-        Orders["📋 Orders\nNode.js · :4000"]
-        Fulfillment["📦 Fulfillment\nPython · :5000"]
+        Products["☕ Products<br/>Java/Spring Boot · :4001"]
+        Cart["🛒 Cart<br/>.NET · :4003"]
+        Checkout["💳 Checkout<br/>Node.js · :4004"]
+        Payment["💰 Payment<br/>Python/FastAPI · :4002"]
+        Orders["📋 Orders<br/>Node.js · :4000"]
+        Fulfillment["📦 Fulfillment<br/>.NET · :5000"]
     end
 
     subgraph Data["🗄️ Data"]
-        DB[("PostgreSQL :5432\nproducts · orders\norder_items · order_events")]
+        DB[("PostgreSQL :5432<br/>products · orders<br/>order_items · order_events")]
     end
 
     subgraph Observability["📡 New Relic"]
